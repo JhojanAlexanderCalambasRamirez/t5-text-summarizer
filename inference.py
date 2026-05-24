@@ -9,10 +9,9 @@
 # ejecuta el modelo y devuelve resultados en estructuras Python puras (dict).
 
 import time
-import torch
-import numpy as np
-from transformers import T5ForConditionalGeneration, AutoTokenizer
 
+import torch
+from transformers import T5ForConditionalGeneration, AutoTokenizer
 
 # ---------------------------------------------------------------------------
 # Catálogo de variantes del modelo

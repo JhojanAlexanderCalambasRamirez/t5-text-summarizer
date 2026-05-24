@@ -11,13 +11,11 @@
 #   Tab 2    : visualización del heatmap de atención cruzada.
 #   Tab 3    : explicación de la arquitectura T5 y sus innovaciones.
 
-import streamlit as st
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
+import streamlit as st
 
 from inference import T5Model, AVAILABLE_MODELS, EXAMPLE_TEXTS
-
 
 # ---------------------------------------------------------------------------
 # Configuración de la página
