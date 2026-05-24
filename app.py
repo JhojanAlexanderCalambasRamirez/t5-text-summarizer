@@ -1,15 +1,15 @@
 # app.py
 # ------
-# Responsabilidad unica: interfaz grafica con Streamlit.
-# Toda la logica del modelo (carga, tokenizacion, inferencia, atencion)
+# Responsabilidad única: interfaz gráfica con Streamlit.
+# Toda la lógica del modelo (carga, tokenización, inferencia, atención)
 # vive en inference.py. Este archivo solo construye la UI, recoge inputs
 # del usuario y muestra los resultados que inference.py devuelve.
 #
 # Estructura de la interfaz:
-#   Sidebar  : selector de variante del modelo y parametros de generacion.
+#   Sidebar  : selector de variante del modelo y parámetros de generación.
 #   Tab 1    : demo principal — ingresar texto y generar resumen.
-#   Tab 2    : visualizacion del heatmap de atencion cruzada.
-#   Tab 3    : explicacion de la arquitectura T5 y sus innovaciones.
+#   Tab 2    : visualización del heatmap de atención cruzada.
+#   Tab 3    : explicación de la arquitectura T5 y sus innovaciones.
 
 import streamlit as st
 import matplotlib.pyplot as plt
@@ -20,10 +20,10 @@ from inference import T5Model, AVAILABLE_MODELS, EXAMPLE_TEXTS
 
 
 # ---------------------------------------------------------------------------
-# Configuracion de la pagina
+# Configuración de la página
 # ---------------------------------------------------------------------------
 # Debe ser la primera llamada a Streamlit en el script; cualquier otra
-# instruccion st.* antes de esta genera un error de ejecucion.
+# instrucción st.* antes de esta genera un error de ejecución.
 st.set_page_config(
     page_title="T5 — Resumen Automatico de Texto",
     page_icon="T5",
@@ -33,30 +33,30 @@ st.set_page_config(
 
 
 # ---------------------------------------------------------------------------
-# Carga del modelo con cache de Streamlit
+# Carga del modelo con caché de Streamlit
 # ---------------------------------------------------------------------------
 # @st.cache_resource almacena el objeto T5Model en memoria entre reruns.
-# Streamlit re-ejecuta el script completo en cada interaccion del usuario;
-# sin este decorador el modelo se volveria a descargar y cargar cada vez.
-# El cache se invalida unicamente si cambia el argumento model_id.
+# Streamlit re-ejecuta el script completo en cada interacción del usuario;
+# sin este decorador el modelo se volvería a descargar y cargar cada vez.
+# El caché se invalida únicamente si cambia el argumento model_id.
 @st.cache_resource(show_spinner="Cargando modelo T5 desde HuggingFace...")
 def load_model(model_id: str) -> T5Model:
     # Instancia T5Model, que descarga pesos y construye el grafo en memoria.
     # La primera carga puede tomar entre 5 s (t5-small en CPU) y varios minutos
-    # (t5-base en CPU); las siguientes son instantaneas gracias al cache.
+    # (t5-base en CPU); las siguientes son instantáneas gracias al caché.
     return T5Model(model_id)
 
 
 # ---------------------------------------------------------------------------
-# Sidebar: configuracion del experimento
+# Sidebar: configuración del experimento
 # ---------------------------------------------------------------------------
-# El sidebar es persistente entre tabs; los valores aqui definidos se usan
-# en las tres pestanas del cuerpo principal.
+# El sidebar es persistente entre tabs; los valores aquí definidos se usan
+# en las tres pestañas del cuerpo principal.
 with st.sidebar:
     st.title("Configuracion")
 
     # Selector de variante del modelo.
-    # Cada opcion en AVAILABLE_MODELS mapea un nombre legible al ID de
+    # Cada opción en AVAILABLE_MODELS mapea un nombre legible al ID de
     # HuggingFace Hub. t5-small es el defecto porque ofrece el mejor
     # balance calidad/velocidad en CPU sin necesidad de GPU.
     model_key = st.selectbox(
@@ -72,8 +72,8 @@ with st.sidebar:
 
     st.divider()
 
-    # Parametros de generacion que se pasan directamente a model.generate().
-    # Se exponen en sliders para permitir experimentos sin modificar el codigo.
+    # Parámetros de generación que se pasan directamente a model.generate().
+    # Se exponen en sliders para permitir experimentos sin modificar el código.
     st.subheader("Parametros de generacion")
 
     max_length = st.slider(
@@ -112,9 +112,9 @@ st.markdown(
 )
 st.divider()
 
-# Definicion de las tres pestanas principales.
+# Definición de las tres pestañas principales.
 # Streamlit ejecuta el contenido de cada bloque with tab_* en el orden
-# en que aparece en el script; las tres pestanas siempre se renderizan,
+# en que aparece en el script; las tres pestañas siempre se renderizan,
 # aunque el usuario solo vea la activa.
 tab_demo, tab_attention, tab_architecture = st.tabs(
     ["Demo: Resumir texto", "Atencion Cruzada (Q · K · V)", "Arquitectura T5"]
@@ -122,22 +122,22 @@ tab_demo, tab_attention, tab_architecture = st.tabs(
 
 
 # ===========================================================================
-# PESTAÑA 1: Demo principal — generacion de resumen
+# PESTAÑA 1: Demo principal — generación de resumen
 # ===========================================================================
 with tab_demo:
     st.subheader("Ingresa un texto en ingles para resumir")
 
     # Selector de textos de ejemplo predefinidos.
-    # Permite cargar rapidamente textos de dominio conocido para demostrar
+    # Permite cargar rápidamente textos de dominio conocido para demostrar
     # el funcionamiento sin necesidad de copiar texto manualmente.
     example_choice = st.selectbox(
         "Cargar texto de ejemplo",
         options=["(ingresar manualmente)"] + list(EXAMPLE_TEXTS.keys()),
     )
 
-    # Si el usuario selecciona un ejemplo, se pre-rellena el area de texto.
+    # Si el usuario selecciona un ejemplo, se pre-rellena el área de texto.
     # Si selecciona "(ingresar manualmente)", EXAMPLE_TEXTS.get devuelve ""
-    # y el area aparece vacia con el placeholder.
+    # y el área aparece vacía con el placeholder.
     default_text = EXAMPLE_TEXTS.get(example_choice, "")
     input_text = st.text_area(
         "Texto de entrada",
@@ -147,7 +147,7 @@ with tab_demo:
         help="El modelo agrega automaticamente el prefijo 'summarize:' antes del texto.",
     )
 
-    # Layout de dos columnas: boton a la izquierda, nota informativa a la derecha.
+    # Layout de dos columnas: botón a la izquierda, nota informativa a la derecha.
     col_btn, col_info = st.columns([1, 3])
     with col_btn:
         run_button = st.button("Resumir", type="primary", use_container_width=True)
@@ -157,13 +157,13 @@ with tab_demo:
             "El mismo modelo puede ejecutar otras tareas cambiando unicamente el prefijo.",
         )
 
-    # Logica de inferencia: se ejecuta solo cuando el usuario presiona el boton.
+    # Lógica de inferencia: se ejecuta solo cuando el usuario presiona el botón.
     if run_button:
         if not input_text.strip():
             st.warning("Por favor ingresa un texto antes de resumir.")
         else:
-            # load_model esta cacheado; esta llamada es O(1) si el modelo_id
-            # no cambio desde la ultima vez que se cargo.
+            # load_model está cacheado; esta llamada es O(1) si el model_id
+            # no cambió desde la última vez que se cargó.
             model = load_model(model_id)
 
             with st.spinner("Generando resumen..."):
@@ -185,9 +185,9 @@ with tab_demo:
 
             st.markdown("")
 
-            # Metricas de inferencia en cuatro columnas.
+            # Métricas de inferencia en cuatro columnas.
             # compression_ratio = tokens_entrada / tokens_salida; mayor ratio
-            # indica que el modelo condenso mas informacion en menos tokens.
+            # indica que el modelo condensó más información en menos tokens.
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Tokens de entrada",    result["input_tokens"])
             m2.metric("Tokens de salida",     result["output_tokens"])
@@ -195,7 +195,7 @@ with tab_demo:
             m4.metric("Tiempo de inferencia", f"{result['elapsed_seconds']} s")
 
             # Persistir el par (entrada, resumen) en session_state para que
-            # la pestana de atencion cruzada pueda acceder a estos valores
+            # la pestaña de atención cruzada pueda acceder a estos valores
             # sin necesidad de volver a ejecutar el modelo.
             st.session_state["last_input"]   = input_text
             st.session_state["last_summary"] = result["summary"]
@@ -203,7 +203,7 @@ with tab_demo:
 
 
 # ===========================================================================
-# PESTAÑA 2: Visualizacion de atencion cruzada
+# PESTAÑA 2: Visualización de atención cruzada
 # ===========================================================================
 with tab_attention:
     st.subheader("Visualizacion de la Atencion Cruzada")
@@ -224,7 +224,7 @@ with tab_attention:
     st.divider()
 
     # Verificar que el usuario haya generado un resumen previamente.
-    # session_state persiste entre reruns del script dentro de la misma sesion.
+    # session_state persiste entre reruns del script dentro de la misma sesión.
     if "last_input" not in st.session_state:
         st.info("Primero genera un resumen en la pestana **Demo** para visualizar la atencion.")
     else:
@@ -247,9 +247,9 @@ with tab_attention:
             y_labs = attn_data["decoder_tokens"]
 
             # Construir el heatmap con seaborn sobre un eje de matplotlib.
-            # El tamano de la figura se escala dinamicamente al numero de tokens
+            # El tamaño de la figura se escala dinámicamente al número de tokens
             # para mantener las celdas legibles independientemente de la longitud
-            # del texto. Los limites (20, 12) evitan figuras demasiado grandes.
+            # del texto. Los límites (20, 12) evitan figuras demasiado grandes.
             fig, ax = plt.subplots(
                 figsize=(
                     min(len(x_labs) * 0.45 + 2, 20),
@@ -260,7 +260,7 @@ with tab_attention:
                 attn,
                 xticklabels=x_labs,
                 yticklabels=y_labs,
-                cmap="Blues",          # colores mas oscuros = mayor atencion
+                cmap="Blues",          # colores más oscuros = mayor atención
                 ax=ax,
                 linewidths=0.3,
                 linecolor="white",
@@ -290,8 +290,8 @@ with tab_attention:
 with tab_architecture:
     st.subheader("Arquitectura T5 — Encoder-Decoder Transformer")
 
-    # Descripcion del encoder y el decoder en columnas paralelas para facilitar
-    # la comparacion directa de sus diferencias estructurales.
+    # Descripción del encoder y el decoder en columnas paralelas para facilitar
+    # la comparación directa de sus diferencias estructurales.
     col_enc, col_dec = st.columns(2)
 
     with col_enc:
@@ -337,7 +337,7 @@ with tab_architecture:
     st.divider()
     st.markdown("### Innovaciones de T5 frente al Transformer original")
 
-    # Cada innovacion se presenta en un expander colapsable para no saturar
+    # Cada innovación se presenta en un expander colapsable para no saturar
     # la vista inicial y permitir al usuario profundizar solo en lo que le interesa.
     innovations = {
         "Framework Text-to-Text": (

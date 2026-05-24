@@ -1,11 +1,11 @@
 # inference.py
 # ------------
-# Responsabilidad unica: toda la logica relacionada con el modelo T5.
-# Carga de pesos desde HuggingFace Hub, tokenizacion con SentencePiece,
-# generacion de resumenes con beam search y extraccion de pesos de atencion
-# cruzada para visualizacion en la interfaz.
+# Responsabilidad única: toda la lógica relacionada con el modelo T5.
+# Carga de pesos desde HuggingFace Hub, tokenización con SentencePiece,
+# generación de resúmenes con beam search y extracción de pesos de atención
+# cruzada para visualización en la interfaz.
 #
-# Este modulo no importa Streamlit ni conoce la UI. Solo recibe datos,
+# Este módulo no importa Streamlit ni conoce la UI. Solo recibe datos,
 # ejecuta el modelo y devuelve resultados en estructuras Python puras (dict).
 
 import time
@@ -15,19 +15,19 @@ from transformers import T5ForConditionalGeneration, AutoTokenizer
 
 
 # ---------------------------------------------------------------------------
-# Catalogo de variantes del modelo
+# Catálogo de variantes del modelo
 # ---------------------------------------------------------------------------
-# t5-small / t5-base: modelos estandar preentrenados en C4 con span corruption.
-#   Producen resumenes coherentes. Recomendados para demos educativas en CPU.
-#   t5-small  ~ 60M parametros, t5-base ~ 220M parametros.
+# t5-small / t5-base: modelos estándar preentrenados en C4 con span corruption.
+#   Producen resúmenes coherentes. Recomendados para demos educativas en CPU.
+#   t5-small  ~ 60M parámetros, t5-base ~ 220M parámetros.
 #
-# t5-efficient-*: variantes con arquitectura compacta disenadas por Google para
-#   reducir el numero de parametros manteniendo aceptable calidad de salida.
-#   Utiles cuando el tiempo de descarga o la memoria RAM son limitados.
+# t5-efficient-*: variantes con arquitectura compacta diseñadas por Google para
+#   reducir el número de parámetros manteniendo aceptable calidad de salida.
+#   Útiles cuando el tiempo de descarga o la memoria RAM son limitados.
 #
 # Los IDs de la derecha son los identificadores exactos en HuggingFace Hub.
 # Al instanciar T5Model, los pesos se descargan una sola vez y quedan en
-# cache local (~/.cache/huggingface/) para usos posteriores sin conexion.
+# caché local (~/.cache/huggingface/) para usos posteriores sin conexión.
 AVAILABLE_MODELS = {
     "t5-small":           "t5-small",
     "t5-base":            "t5-base",
@@ -38,11 +38,11 @@ AVAILABLE_MODELS = {
 
 
 # ---------------------------------------------------------------------------
-# Textos de ejemplo para la interfaz de demostracion
+# Textos de ejemplo para la interfaz de demostración
 # ---------------------------------------------------------------------------
-# Todos los textos estan en ingles porque T5 fue preentrenado en C4, un corpus
-# de paginas web en ingles de 750 GB. Sin fine-tuning especifico, la calidad
-# del resumen en otros idiomas no esta garantizada.
+# Todos los textos están en inglés porque T5 fue preentrenado en C4, un corpus
+# de páginas web en inglés de 750 GB. Sin fine-tuning específico, la calidad
+# del resumen en otros idiomas no está garantizada.
 EXAMPLE_TEXTS = {
     "Inteligencia Artificial": (
         "Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to "
@@ -102,20 +102,20 @@ class T5Model:
     # Gestiona tres responsabilidades bien delimitadas:
     #   1. Carga del tokenizador SentencePiece y de los pesos preentrenados
     #      del modelo encoder-decoder T5.
-    #   2. Generacion de resumenes a partir de texto en ingles (metodo summarize).
+    #   2. Generación de resúmenes a partir de texto en inglés (método summarize).
     #      Internamente aplica beam search sobre el espacio de tokens.
-    #   3. Extraccion de la matriz de atencion cruzada entre encoder y decoder
-    #      para su visualizacion como heatmap (metodo get_cross_attention).
+    #   3. Extracción de la matriz de atención cruzada entre encoder y decoder
+    #      para su visualización como heatmap (método get_cross_attention).
 
     def __init__(self, model_id: str = "t5-small"):
-        # --- Seleccion del dispositivo de computo ---
+        # --- Selección del dispositivo de cómputo ---
         # Se prueban los aceleradores en orden de preferencia:
         #   CUDA : GPU NVIDIA. Disponible en Windows / Linux con driver CUDA.
-        #          Ofrece la mayor aceleracion; necesario para modelos grandes.
+        #          Ofrece la mayor aceleración; necesario para modelos grandes.
         #   MPS  : Metal Performance Shaders, GPU integrada de Apple Silicon
         #          (chips M1, M2, M3). Disponible en macOS >= 12.3 con PyTorch >= 1.13.
         #   CPU  : fallback universal. Funciona en cualquier equipo pero es
-        #          significativamente mas lento para modelos de +200M parametros.
+        #          significativamente más lento para modelos de +200M parámetros.
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         elif torch.backends.mps.is_available():
@@ -126,29 +126,29 @@ class T5Model:
         self.model_id = model_id
 
         # --- Tokenizador ---
-        # AutoTokenizer identifica automaticamente el tipo de tokenizador
-        # asociado al modelo (T5 usa SentencePiece, un algoritmo de tokenizacion
+        # AutoTokenizer identifica automáticamente el tipo de tokenizador
+        # asociado al modelo (T5 usa SentencePiece, un algoritmo de tokenización
         # a nivel de subpalabras que divide palabras en unidades menores
-        # cuando no estan en el vocabulario base de ~32,000 tokens).
-        # Primera ejecucion: descarga ~800 KB de archivos de vocabulario.
+        # cuando no están en el vocabulario base de ~32,000 tokens).
+        # Primera ejecución: descarga ~800 KB de archivos de vocabulario.
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         # --- Pesos del modelo ---
         # T5ForConditionalGeneration instancia la arquitectura encoder-decoder
-        # completa (embeddings, capas de atencion, FFN, head de salida) y carga
+        # completa (embeddings, capas de atención, FFN, head de salida) y carga
         # los pesos preentrenados desde HuggingFace Hub.
-        # Primera ejecucion: descarga entre 60 MB (t5-small) y 900 MB (t5-base).
+        # Primera ejecución: descarga entre 60 MB (t5-small) y 900 MB (t5-base).
         self.model = T5ForConditionalGeneration.from_pretrained(model_id)
         self.model.to(self.device)
 
-        # --- Modo evaluacion ---
+        # --- Modo evaluación ---
         # model.eval() desactiva el dropout y las capas de BatchNorm que solo
         # se usan durante el entrenamiento. Combinado con torch.no_grad() en
         # cada forward pass, reduce el uso de memoria y acelera la inferencia.
         self.model.eval()
 
     # -----------------------------------------------------------------------
-    # Metodo 1: generacion de resumen (inferencia principal)
+    # Método 1: generación de resumen (inferencia principal)
     # -----------------------------------------------------------------------
 
     def summarize(
@@ -160,20 +160,20 @@ class T5Model:
         length_penalty: float = 2.0,
         no_repeat_ngram_size: int = 3,
     ) -> dict:
-        # Genera un resumen en ingles a partir del texto de entrada.
+        # Genera un resumen en inglés a partir del texto de entrada.
         #
-        # Parametros:
-        #   text                 : texto a resumir (solo ingles recomendado)
-        #   max_length           : maximo de tokens en la salida del decoder
-        #   min_length           : minimo de tokens en la salida del decoder
-        #   num_beams            : hipotesis que beam search mantiene en paralelo
+        # Parámetros:
+        #   text                 : texto a resumir (solo inglés recomendado)
+        #   max_length           : máximo de tokens en la salida del decoder
+        #   min_length           : mínimo de tokens en la salida del decoder
+        #   num_beams            : hipótesis que beam search mantiene en paralelo
         #                          (1 = greedy decoding, >1 mejora calidad)
         #   length_penalty       : exponente aplicado a la longitud de la secuencia
-        #                          al puntuar las hipotesis del beam search.
-        #                          >1.0 favorece resumenes mas largos;
-        #                          <1.0 favorece resumenes mas cortos.
+        #                          al puntuar las hipótesis del beam search.
+        #                          >1.0 favorece resúmenes más largos;
+        #                          <1.0 favorece resúmenes más cortos.
         #   no_repeat_ngram_size : evita que el modelo repita n-gramas del mismo
-        #                          tamano en la salida (reduce frases duplicadas)
+        #                          tamaño en la salida (reduce frases duplicadas)
         #
         # Retorna dict con: summary, input_tokens, output_tokens,
         #                   compression_ratio, elapsed_seconds, device.
@@ -181,16 +181,16 @@ class T5Model:
         # Paso 1: prefijo de tarea.
         # El framework text-to-text de T5 distingue tareas mediante un prefijo
         # de texto en la entrada. "summarize: " instruye al modelo a producir
-        # un resumen. El mismo modelo usaria "translate English to French: " para
-        # traduccion o "cola sentence: " para clasificacion gramatical, sin
-        # ningun cambio en los pesos.
+        # un resumen. El mismo modelo usaría "translate English to French: " para
+        # traducción o "cola sentence: " para clasificación gramatical, sin
+        # ningún cambio en los pesos.
         prefixed_text = "summarize: " + text.strip()
 
-        # Paso 2: tokenizacion del texto de entrada.
+        # Paso 2: tokenización del texto de entrada.
         # El tokenizador SentencePiece convierte el texto en una secuencia de
         # IDs enteros que representan subpalabras del vocabulario del modelo.
         # truncation=True recorta la secuencia si supera 512 tokens, que es el
-        # limite del encoder en la configuracion estandar de T5.
+        # límite del encoder en la configuración estándar de T5.
         # return_tensors="pt" devuelve tensores de PyTorch listos para el modelo.
         inputs = self.tokenizer(
             prefixed_text,
@@ -199,15 +199,15 @@ class T5Model:
             truncation=True,
         ).to(self.device)
 
-        # Paso 3: generacion autoregresiva con beam search.
+        # Paso 3: generación autoregresiva con beam search.
         # El decoder produce un token a la vez. En cada paso:
         #   a) Aplica masked self-attention sobre los tokens ya generados.
         #   b) Aplica cross-attention sobre la salida del encoder para "leer"
-        #      el texto de entrada (aqui es donde Q viene del decoder y K,V
+        #      el texto de entrada (aquí es donde Q viene del decoder y K,V
         #      vienen del encoder).
         #   c) Aplica una capa FFN y proyecta al espacio del vocabulario.
-        #   d) Selecciona el token siguiente segun las puntuaciones de beam search.
-        # torch.no_grad() desactiva el calculo del grafo de diferenciacion,
+        #   d) Selecciona el token siguiente según las puntuaciones de beam search.
+        # torch.no_grad() desactiva el cálculo del grafo de diferenciación,
         # reduciendo el consumo de memoria RAM/VRAM durante la inferencia.
         t0 = time.time()
         with torch.no_grad():
@@ -223,7 +223,7 @@ class T5Model:
             )
         elapsed = round(time.time() - t0, 3)
 
-        # Paso 4: decodificacion de la salida.
+        # Paso 4: decodificación de la salida.
         # Convierte la secuencia de IDs generados por el decoder de vuelta
         # a texto legible. skip_special_tokens=True elimina tokens de control
         # como <pad>, </s> y <unk> del resultado final.
@@ -236,14 +236,14 @@ class T5Model:
             "summary":           summary,
             "input_tokens":      n_input,
             "output_tokens":     n_output,
-            # ratio = tokens_entrada / tokens_salida. Valor > 1 indica compresion.
+            # ratio = tokens_entrada / tokens_salida. Valor > 1 indica compresión.
             "compression_ratio": round(n_input / max(n_output, 1), 2),
             "elapsed_seconds":   elapsed,
             "device":            str(self.device),
         }
 
     # -----------------------------------------------------------------------
-    # Metodo 2: extraccion de pesos de atencion cruzada
+    # Método 2: extracción de pesos de atención cruzada
     # -----------------------------------------------------------------------
 
     def get_cross_attention(
@@ -253,36 +253,36 @@ class T5Model:
         max_enc_tokens: int = 80,
         max_dec_tokens: int = 40,
     ) -> dict:
-        # Extrae y devuelve la matriz de atencion cruzada de la ultima capa
+        # Extrae y devuelve la matriz de atención cruzada de la última capa
         # del decoder para un par (entrada, salida) dado.
         #
-        # La atencion cruzada (cross-attention) es el mecanismo central que
-        # permite al decoder consultar el encoder en cada paso de generacion.
+        # La atención cruzada (cross-attention) es el mecanismo central que
+        # permite al decoder consultar el encoder en cada paso de generación.
         # Sus tres tensores son:
         #   Q (Query)  : generado por el decoder. Representa la pregunta
-        #                "que informacion necesito para producir este token?"
-        #   K (Key)    : generado por el encoder. Representa el indice de
-        #                busqueda "que informacion hay disponible en la entrada?"
+        #                "¿qué información necesito para producir este token?"
+        #   K (Key)    : generado por el encoder. Representa el índice de
+        #                búsqueda "¿qué información hay disponible en la entrada?"
         #   V (Value)  : generado por el encoder. Contiene el contenido real
         #                que se extrae una vez que K responde a Q.
         #
-        # El calculo es: Attention(Q, K, V) = softmax(Q * K^T / sqrt(d_k)) * V
-        # donde d_k es la dimension de las cabezas de atencion.
+        # El cálculo es: Attention(Q, K, V) = softmax(Q * K^T / sqrt(d_k)) * V
+        # donde d_k es la dimensión de las cabezas de atención.
         #
-        # Parametros:
+        # Parámetros:
         #   input_text      : texto de entrada original (sin el prefijo)
-        #   output_text     : resumen ya generado (del metodo summarize)
-        #   max_enc_tokens  : limite de tokens del encoder (controla ancho del heatmap)
-        #   max_dec_tokens  : limite de tokens del decoder (controla alto del heatmap)
+        #   output_text     : resumen ya generado (del método summarize)
+        #   max_enc_tokens  : límite de tokens del encoder (controla ancho del heatmap)
+        #   max_dec_tokens  : límite de tokens del decoder (controla alto del heatmap)
         #
         # Retorna dict con: attention (numpy 2D), encoder_tokens, decoder_tokens.
 
         prefixed = "summarize: " + input_text.strip()
 
-        # Tokenizar la entrada y la salida por separado con limites reducidos.
-        # Los limites controlan el tamano del heatmap: demasiados tokens hacen
-        # la visualizacion ilegible. 60 tokens de encoder y 30 de decoder
-        # suele ser un buen balance para textos de demostracion.
+        # Tokenizar la entrada y la salida por separado con límites reducidos.
+        # Los límites controlan el tamaño del heatmap: demasiados tokens hacen
+        # la visualización ilegible. 60 tokens de encoder y 30 de decoder
+        # suele ser un buen balance para textos de demostración.
         enc = self.tokenizer(
             prefixed, return_tensors="pt",
             max_length=max_enc_tokens, truncation=True,
@@ -294,9 +294,9 @@ class T5Model:
         ).to(self.device)
 
         # Forward pass completo del modelo con output_attentions=True.
-        # En lugar de generar tokens nuevos (como en summarize), aqui se pasa
+        # En lugar de generar tokens nuevos (como en summarize), aquí se pasa
         # directamente el resumen ya generado como decoder_input_ids para
-        # obtener los pesos de atencion que el modelo asignaria al procesarlo.
+        # obtener los pesos de atención que el modelo asignaría al procesarlo.
         # output_attentions=True hace que el modelo devuelva los pesos de todas
         # las capas y cabezas del encoder y del decoder (incluyendo cross-attention).
         with torch.no_grad():
@@ -311,16 +311,16 @@ class T5Model:
         # outputs.cross_attentions es una tupla de tensores, uno por capa del decoder.
         # Forma de cada tensor: (batch_size=1, num_heads, dec_seq_len, enc_seq_len)
         #
-        # Se selecciona la ultima capa [-1] porque es la mas cercana a la generacion
-        # del token de salida y refleja las decisiones de atencion mas refinadas.
-        # Se toma el primer (y unico) ejemplo del batch [0] para obtener
+        # Se selecciona la última capa [-1] porque es la más cercana a la generación
+        # del token de salida y refleja las decisiones de atención más refinadas.
+        # Se toma el primer (y único) ejemplo del batch [0] para obtener
         # un tensor de forma (num_heads, dec_seq_len, enc_seq_len).
         # Se promedian las cabezas con mean(dim=0) para obtener una sola matriz
         # 2D (dec_seq_len, enc_seq_len) visualizable como heatmap.
         last_cross_attn = outputs.cross_attentions[-1][0]        # (heads, dec, enc)
         attn_matrix = last_cross_attn.mean(dim=0).cpu().numpy()  # (dec, enc)
 
-        # Convertir IDs numericos a texto legible para las etiquetas de los ejes.
+        # Convertir IDs numéricos a texto legible para las etiquetas de los ejes.
         # SentencePiece usa el prefijo "▁" (espacio subrayado) para marcar el
         # inicio de una nueva palabra, lo que permite reconstruir espacios
         # al decodificar una secuencia de subpalabras.
