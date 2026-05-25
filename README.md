@@ -142,38 +142,66 @@ T5 modifica la topología de las conexiones residuales del Transformer clásico.
 
 ## 4. Metodología
 
-### Herramientas utilizadas
+### 4.1 Proceso de implementación y criterios de selección
 
-| Herramienta | Versión | Propósito |
-|-------------|---------|-----------|
-| Python | 3.10+ | Lenguaje base |
-| PyTorch | ≥2.0 | Backend de cómputo tensorial |
-| HuggingFace Transformers | ≥4.40 | Carga de modelo y tokenizador T5 |
-| SentencePiece | ≥0.2 | Tokenizador de subpalabras de T5 |
-| Streamlit | ≥1.35 | Interfaz interactiva |
-| Matplotlib / Seaborn | ≥3.7 | Visualización de atención |
+El desarrollo del presente proyecto se estructuró en tres etapas: el análisis de las restricciones de cómputo locales, el diseño de un canal de inferencia desacoplado para el procesamiento de texto y la construcción de un entorno visual interactivo que permitiera auditar las decisiones del modelo de forma gráfica.
 
-### Uso de pesos preentrenados
+Debido a que el despliegue y la validación del sistema se ejecutan en hardware de consumo general sin acceso a unidades de procesamiento gráfico dedicadas, se realizó un análisis comparativo de la viabilidad de cómputo en CPU para las distintas variantes de T5. Aunque los modelos de parámetros escalados como `t5-base` brindan una precisión semántica elevada, su exigencia computacional por cada paso autoregresivo del decoder introduce latencias que comprometen la interactividad en tiempo real de la interfaz. 
 
-El proyecto **no entrena el modelo desde cero**. Se utilizan los pesos preentrenados de `google/t5-efficient-small` disponibles públicamente en HuggingFace Hub. La descarga ocurre automáticamente la primera vez que se ejecuta la aplicación:
+Bajo estas condiciones, se optó por la variante `google/t5-efficient-small`. Esta arquitectura modifica la profundidad y el número de cabezas de atención respecto al diseño estándar, ofreciendo un balance óptimo al reducir la dimensionalidad de las representaciones internas sin degradar críticamente la coherencia gramatical del resumen generado. Con aproximadamente 60 millones de parámetros, esta variante permite sostener tiempos de inferencia en CPU inferiores a los 4 segundos por secuencia.
+
+### 4.2 Herramientas utilizadas
+
+| Herramienta              | Versión | Propósito en el proyecto                                                                                   |
+|:-------------------------|:--------|:-----------------------------------------------------------------------------------------------------------|
+| Python                   | 3.10+   | Entorno de ejecución e interpretación del código base.                                                     |
+| PyTorch                  | >=2.0   | Backend de cómputo numérico, gestión de tensores y ejecución del grafo de inferencia.                      |
+| HuggingFace Transformers | >=4.40  | API de abstracción para la inicialización de la arquitectura T5 y la inyección de pesos preentrenados.     |
+| SentencePiece            | >=0.2   | Motor de tokenización basado en subpalabras independiente del idioma para codificación de texto.           |
+| Streamlit                | >=1.35  | Framework para el desarrollo acelerado de la interfaz gráfica de usuario y renderizado de componentes web. |
+| Matplotlib / Seaborn     | >=3.7   | Generación y formateo de matrices bidimensionales para la visualización de la atención cruzada.            |
+
+### 4.3 Interfaz interactiva en Streamlit
+
+Para democratizar el acceso al modelo y permitir la auditoría de los mecanismos internos de atención, se diseñó una interfaz gráfica interactiva dividida funcionalmente en dos capas de abstracción mediante componentes de pestañas. 
+
+La primera capa se enfoca en el control operativo del modelo, exponiendo controles en la barra lateral para parametrizar hiperparámetros del pipeline generativo, tales como la longitud mínima y máxima de los tokens de salida, y el uso de penalizaciones por repetición. La segunda capa está destinada al análisis explicativo del modelo de aprendizaje profundo, proporcionando un espacio dedicado a la representación visual de las matrices de peso interceptadas.
+
+### 4.4 Extracción de los pesos de atención cruzada
+
+La evaluación profunda de la arquitectura exige capturar los pesos calculados por la función softmax en la subcapa de atención cruzada del decoder. En condiciones normales de inferencia, las matrices intermedias de alineación no se retienen en memoria para optimizar el uso de recursos. Para subvertir esta restricción sin alterar el flujo computacional de PyTorch.
+
+Matemáticamente, para la última capa del decoder, la matriz de atención cruzada que mapea la influencia de los tokens generados sobre los tokens de entrada se extrae directamente de la tupla de tensores devuelta por el modelo. Dado que la atención multi-cabeza procesa $h$ cabezas en paralelo, el tensor extraído posee una forma cuatridimensional indexada por:
+
+$$\mathcal{A} \in \mathbb{R}^{\text{batch_size} \times h \times \text{target_seq_len} \times \text{source_seq_len}}$$
+
+Para efectos de visualización en este proyecto, se extrae el lote correspondiente a la inferencia actual, y se calcula el promedio aritmético o la selección selectiva a través de las $h$ cabezas de la última capa del decoder, reduciendo el tensor a una matriz bidimensional apta para el mapeo térmico:
+
+$$M_{j,i} = \frac{1}{h} \sum_{c=1}^{h} \mathcal{A}_{c, j, i}$$
+
+Donde $j$ indexa las posiciones de los tokens de salida generados por el resumen y $i$ indexa las posiciones de los tokens de la secuencia original codificada por el encoder.
+
+### 4.5 Uso de pesos preentrenados
+
+El proyecto no realiza ningún proceso de optimización de pesos ni entrenamiento desde cero. Se consumen los parámetros preentrenados de la distribución de eficiencia de Google disponibles en HuggingFace Hub. El proceso de inicialización y almacenamiento en las estructuras de datos de PyTorch se gestiona mediante el siguiente bloque de código.
 
 ```python
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("google/t5-efficient-small")
-model     = T5ForConditionalGeneration.from_pretrained("google/t5-efficient-small")
+model = T5ForConditionalGeneration.from_pretrained("google/t5-efficient-small")
 ```
 
-Los pesos quedan en caché local (`~/.cache/huggingface/`) para ejecuciones posteriores sin conexión.
+Durante la primera ejecución del script, los archivos de parametrización binaria se descargan de forma automatizada y se localizan en el directorio de persistencia local del sistema operativo (~/.cache/huggingface/), permitiendo que las ejecuciones subsecuentes prescindan de conectividad a la red de internet.
 
-### Variantes del modelo disponibles
+### 4.6 Variantes del modelo disponibles
 
-| Modelo | Parámetros aprox. | Uso recomendado |
-|--------|------------------|-----------------|
-| t5-efficient-tiny  | ~6M   | Pruebas rápidas, CPU lento |
-| t5-efficient-mini  | ~11M  | CPU, latencia aceptable |
-| t5-efficient-small | ~60M  | Balance calidad/velocidad ✓ |
-| t5-efficient-base  | ~250M | GPU, mejor calidad |
+| Modelo             | Parámetros    | Entorno recomendado                                                                                                     |
+|:-------------------|:--------------|:------------------------------------------------------------------------------------------------------------------------|
+| t5-efficient-tiny  | ~6 millones   | Pruebas de integración rápidas entornos con severas restricciones de memoria RAM o CPUs antiguas.                       |
+| t5-efficient-mini  | ~11 millones  | Ejecución estándar en CPU con latencias de procesamiento moderadas.                                                     |
+| t5-efficient-small | ~60 millones  | Configuración seleccionada en este proyecto; balance óptimo entre preservación semántica y velocidad de cómputo en CPU. |
+| t5-efficient-base  | ~250 millones | Despliegue mandatorio en hardware con aceleración de GPU; máxima fidelidad interpretativa.                              |
 
 ---
 
