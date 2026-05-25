@@ -78,7 +78,8 @@ El bloque del encoder transforma una secuencia de representaciones continuas de 
 
 Por otra parte, el bloque del decoder genera una secuencia de salida $Y = (y_1, ..., y_m)$ de forma autorregresiva, es decir, token a token, utilizando las representaciones contextuales $Z$ provistas por el encoder y los tokens previamente generados. El decoder clásico añade una tercera subcapa intermedia dedicada a la atención cruzada (cross-attention), la cual conecta funcionalmente ambos bloques.
 
-![encoder-decoder.png](screenshots/encoder-decoder.png)
+![encoder-decoder.png](screenshots/encoder-decoder.png)  
+<small>Figura 1: La arquitectura del modelo Transformer. Adaptado de [2]</small>
 
 El modelo Text-to-Text Transfer Transformer (T5), formulado por Raffel et al. [1], adopta esta estructura secuencial clásica, pero introduce modificaciones estructurales fundamentales para optimizar la eficiencia y la estabilidad del gradiente durante el aprendizaje por transferencia a gran escala. A diferencia de las tendencias contemporáneas que simplificaron la arquitectura hacia configuraciones de solo encoder como BERT o solo decoder como GPT, T5 sostiene que mantener la arquitectura encoder-decoder resulta óptimo para resolver tareas generales de secuencias complejas de texto a texto.
 
@@ -101,7 +102,8 @@ $$Attention(Q, K, V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
 
 El factor de escala $\frac{1}{\sqrt{d_k}}$ mitiga el crecimiento desproporcionado de las magnitudes de los productos escalares cuando la dimensionalidad $d_k$ es elevada, evitando que la función softmax sature en regiones de gradiente infinitesimalmente pequeño.
 
-![scaled_dot-product_attention_multi-head_attention.png](screenshots/scaled_dot-product_attention_multi-head_attention.png)
+![scaled_dot-product_attention_multi-head_attention.png](screenshots/scaled_dot-product_attention_multi-head_attention.png)  
+<small>Figura 2: (izquierda) Scaled Dot-Product Attention. (derecha) Multi-Head Attention. Adaptado de [2]</small>
 
 Para enriquecer la capacidad de representación, se implementa la Multi-Head Attention. En lugar de realizar una única operación de atención sobre las dimensiones globales, el modelo proyecta linealmente $h$ veces las consultas, claves y valores de forma independiente en subespacios dimensionales reducidos. Cada proyección se procesa en paralelo mediante la función de atención escalada, y las salidas resultantes se concatenan para ser proyectadas nuevamente a la dimensión original del modelo:
 
@@ -142,7 +144,8 @@ Donde $B$ representa una matriz de sesgo posicional entrenable. Para optimizar l
 
 En contraposición al enmascaramiento de tokens unitarios implementado en arquitecturas tradicionales como BERT, T5 fundamenta su preentrenamiento auto-supervisado en la tarea de corrupción de fragmentos continuos de texto, reemplazándolos con sentinel tokens especiales. Este proceso se ejecutó sobre el conjunto de datos Colossal Clean Crawled Corpus o C4, un corpus de aproximadamente 750 GB de texto web filtrado mediante reglas heurísticas estrictas para remover contenido repetitivo o sintácticamente defectuoso. Esta aproximación entrena de forma nativa la naturaleza generativa del bloque decoder para la reconstrucción secuencial de secuencias lingüísticas coherentes.
 
-![span-corruption.png](screenshots/span-corruption.png)
+![span-corruption.png](screenshots/span-corruption.png)  
+<small>Figura 3: Esquema del objetivo utilizado en el modelo base - Span Corruption. Adaptado de [1]</small>
 
 #### 3.4.4 Arquitectura de linealidad sin sesgo o Bias-Free Dense Layers 
 
