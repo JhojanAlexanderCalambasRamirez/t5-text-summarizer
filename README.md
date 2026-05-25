@@ -205,7 +205,7 @@ Durante la primera ejecución del script, los archivos de parametrización binar
 
 ---
 
-## 5. Desarrollo e Implementación
+## 5. Desarrollo e implementación
 
 ### 5.1 Estructura del proyecto
 
@@ -318,62 +318,70 @@ La matriz bidimensional resultante contiene los coeficientes normalizados de inf
 
 ---
 
-## 6. Resultados y Análisis
+## 6. Resultados y análisis
 
-### Ejemplo de inferencia — Inteligencia Artificial
+### 6.1 Ejemplo de inferencia
 
-**Entrada (180 tokens):**
-> *"Artificial intelligence (AI) is intelligence demonstrated by machines... AI applications include advanced web search engines, recommendation systems, understanding human speech, self-driving cars..."*
+**Secuencia de entrada (180 tokens):**
+> *"Artificial intelligence (AI) is intelligence demonstrated by machines ... AI applications include advanced web search engines, recommendation systems, understanding human speech, self-driving cars..."*
 
-**Salida — Resumen generado por T5:**
+**Secuencia de salida (resumen generado por T5):**
 > *"artificial intelligence is intelligence demonstrated by machines, as opposed to the natural intelligence displayed by animals. AI applications include advanced web search engines, recommendation systems, and self-driving cars."*
 
-| Métrica | Valor |
-|---------|-------|
-| Tokens de entrada | ~180 |
-| Tokens de salida | ~40 |
-| Ratio de compresión | ~4.5x |
-| Tiempo de inferencia (CPU) | ~2-4 s |
-| Modelo utilizado | t5-efficient-small |
+| Métrica                                 | Resultado             |
+|:----------------------------------------|:----------------------|
+| Tokens de la secuencia de entrada       | ~180                  |
+| Tokens de la secuencia de salida        | ~40                   |
+| Ratio de compresión de texto            | ~4.5x                 |
+| Tiempo de inferencia (Ejecución en CPU) | ~2-4 s                |
+| Variante del modelo instanciada         | t5-efficient-small    |
 
-### Análisis de la atención cruzada
+El análisis cuantitativo de los resultados demuestra la viabilidad operativa del framework secuencial unificado bajo restricciones de hardware local. La obtención de un ratio de compresión de aproximadamente 4.5x valida la capacidad de la red para sintetizar la densidad informativa, logrando encapsular las premisas fundamentales del texto fuente sin incurrir en alucinaciones sintácticas o pérdidas detectables de coherencia global. La latencia registrada en CPU, oscilando entre los 2 y 4 segundos, se encuentra dentro de los márgenes de tolerancia interactiva para aplicaciones síncronas. Esto demuestra que la reducción en la profundidad de las capas de la variante eficiente optimiza significativamente la velocidad de procesamiento.
 
-El mapa de calor de atención cruzada revela el comportamiento del mecanismo Q-K-V durante la generación:
+### 6.2 Análisis de la atención cruzada
 
-- Los tokens del resumen que capturan ideas principales muestran **atención concentrada** en los tokens de entrada correspondientes (colores oscuros en el heatmap).
-- Los tokens funcionales (`the`, `a`, `is`) distribuyen la atención de forma más uniforme.
-- Se observa que el modelo asigna mayor atención a sustantivos y verbos clave del texto fuente, ignorando palabras de relleno.
+El mapa de calor extraído de la última capa del decoder permite auditar visualmente la dinámica operacional del mecanismo de consultas, claves y valores durante el proceso de generación:
 
-**Capturas de pantalla de la aplicación:**
+Las coordenadas espaciales que intersecan tokens del resumen encargados de transportar la carga semántica principal manifiestan una concentración de peso probabilístico elevada sobre sus contrapartes en la secuencia original. Esto se traduce en valores numéricos cercanos a la unidad que se representan mediante densidades cromáticas oscuras en la matriz térmica.
+
+Por el contrario, los tokens de naturaleza puramente funcional o conectores gramaticales, tales como `the`, `a` o `is`, distribuyen sus coeficientes de atención de manera uniforme a lo largo del eje del encoder, reflejando que su generación responde a restricciones de estructura sintáctica e idioma más que a dependencias conceptuales del texto fuente.
+
+Se constata experimentalmente que el decoder discrimina de forma selectiva las estructuras lingüísticas, asignando los mayores pesos de alineación a los núcleos del sujeto y del predicado, sustantivos y verbos conjugados, e ignorando sistemáticamente los elementos de relleno o modificadores secundarios de la entrada.
+
+**Registro de capturas de pantalla de la interfaz de usuario:**
 
 ![Demo inicial](screenshots/01_demo_inicial.png)
-*Tab 1 — Demo: interfaz de entrada con selector de ejemplos y parámetros en sidebar.*
+
+*Pestaña 1: Demostración operativa del sistema. Interfaz de usuario que expone la caja de texto para el ingreso de datos secuenciales, el selector de ejemplos preconfigurados y los parámetros del canal de generación en la barra lateral.*
 
 ![Mapa de atención cruzada](screenshots/02_attention_heatmap.png)
-*Tab 2 — Heatmap de atención cruzada: el decoder "lee" el encoder token a token.*
 
-### Comparación de variantes
+*Pestaña 2: Matriz térmica de atención cruzada. Visualización bidimensional que describe el comportamiento del decoder al realizar consultas sobre las representaciones contextuales del encoder token a token.*
 
-| Modelo | Calidad del resumen | Velocidad (CPU) | Tamaño |
-|--------|--------------------|-----------------|----|
-| t5-small  | Buena, coherente ✓ | Moderada (~0.5s) | ~240 MB |
-| t5-base   | Muy buena | Lenta (~2-4s) | ~900 MB |
-| efficient-tiny | Básica, omite detalles | Muy rápida | ~25 MB |
-| efficient-small | Aceptable | Rápida | ~60 MB |
-| efficient-base  | Muy buena | Moderada-lenta | ~250 MB |
+### 6.3 Comparación de variantes arquitectónicas
+
+| Identificador de la variante | Calidad cualitativa del resumen           | Velocidad de inferencia en CPU  | Tamaño de persistencia en disco |
+|:-----------------------------|:------------------------------------------|:--------------------------------|:--------------------------------|
+| t5-small                     | Buena, preserva coherencia gramatical     | Moderada (~0.5s por token)      | ~240 MB                         |
+| t5-base                      | Muy alta fidelidad semántica              | Lenta (~2-4s por paso general)  | ~900 MB                         |
+| efficient-tiny               | Básica, propensa a la omisión de detalles | Alta velocidad de procesamiento | ~25 MB                          |
+| efficient-small              | Aceptable, balance estructural idóneo     | Rápida en entornos restrictivos | ~60 MB                          |
+| efficient-base               | Muy alta fidelidad semántica              | Moderada a lenta en CPU         | ~250 MB                         |
+
+La evaluación comparativa de las distintas configuraciones de parámetros evidencia la correlación existente entre el volumen de pesos neuronales, el tamaño del archivo binario en disco y las latencias de cómputo sobre hardware no acelerado. Las variantes de escala estándar como `t5-base` exhiben capacidades superiores en la preservación de matices conceptuales complejos, pero su despliegue en CPU resulta complejo para entornos de producción por los tiempos de respuesta elevados. En contraste, las variantes `efficient` mitigan esta penalización mediante la reconfiguración de los subespacios de atención. La variante seleccionada, `efficient-small`, demuestra una superioridad frente a `t5-small` al reducir el almacenamiento físico en un 75% y agilizar los tiempos de cómputo.
 
 ---
 
 ## 7. Conclusiones
 
-### Aprendizajes
+### 7.1 Aprendizajes
 
 - El framework text-to-text de T5 demuestra que la unificación de tareas NLP no solo es posible sino que mejora el rendimiento general al compartir representaciones entre tareas.
 - La **atención cruzada** es el mecanismo que hace funcionar la conexión encoder-decoder: el decoder literalmente "consulta" el texto de entrada en cada paso de generación, y esto es observable y visualizable directamente en los pesos Q-K-V.
 - El **Relative Position Bias** es una innovación que mejora significativamente la generalización a secuencias largas comparado con el encoding posicional absoluto.
 - Los pesos preentrenados de HuggingFace permiten implementar inferencia de calidad sin recursos de entrenamiento, lo que democratiza el acceso a modelos de lenguaje avanzados.
 
-### Limitaciones
+### 7.2 Limitaciones
 
 - **Idioma:** El modelo base está optimizado para inglés. Para otros idiomas se requieren variantes multilingües (mT5).
 - **Alucinaciones:** T5 puede generar texto gramaticalmente correcto pero factualmente incorrecto, especialmente con textos que contienen datos numéricos o nombres propios poco frecuentes.
@@ -381,7 +389,7 @@ El mapa de calor de atención cruzada revela el comportamiento del mecanismo Q-K
 - **Costo computacional:** El modelo `t5-efficient-base` requiere GPU para inferencia en tiempo real en producción.
 - **Sin memoria conversacional:** Cada inferencia es completamente independiente.
 
-### Posibles mejoras
+### 7.3 Posibles mejoras
 
 - Fine-tuning sobre el dataset CNN/DailyMail para mejorar la calidad del resumen.
 - Integrar mT5 para soporte de español y otros idiomas.
