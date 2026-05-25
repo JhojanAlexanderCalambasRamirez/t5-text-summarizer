@@ -190,7 +190,7 @@ La evaluación profunda de la arquitectura exige capturar los pesos calculados p
 
 Matemáticamente, para la última capa del decoder, la matriz de atención cruzada que mapea la influencia de los tokens generados sobre los tokens de entrada se extrae directamente de la tupla de tensores devuelta por el modelo. Dado que la atención multi-cabeza procesa $h$ cabezas en paralelo, el tensor extraído posee una forma cuatridimensional indexada por:
 
-$$\mathcal{A} \in \mathbb{R}^{\text{batch_size} \times h \times \text{target_seq_len} \times \text{source_seq_len}}$$
+$$\mathcal{A} \in \mathbb{R}^{batch\\_size \times h \times target\\_seq\\_len \times source\\_seq\\_len}$$
 
 Para efectos de visualización en este proyecto, se extrae el lote correspondiente a la inferencia actual, y se calcula el promedio aritmético o la selección selectiva a través de las $h$ cabezas de la última capa del decoder, reduciendo el tensor a una matriz bidimensional apta para el mapeo térmico:
 
