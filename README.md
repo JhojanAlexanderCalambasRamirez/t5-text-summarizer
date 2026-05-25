@@ -1,14 +1,14 @@
-# T5 — Resumen Automático de Texto con Transformer Encoder-Decoder
+# T5 - Resumen Automático de Texto con Transformer Encoder-Decoder
 
 **Procesamiento de Datos Secuenciales con Deep Learning**  
 Universidad Autónoma de Occidente · 2025
 
-| Integrante | Código |
-|---|---|
+| Integrante                 | Código   |
+|----------------------------|----------|
 | Alexander Calambas Ramirez | 22602907 |
-| Angelo Parra Cortez | 22506988 |
-| Oscar Portela Ospina | 22507314 |
-| Sebastian Torres Cabrera | 22507322 |
+| Angelo Parra Cortez        | 22506988 |
+| Oscar Portela Ospina       | 22507314 |
+| Sebastian Torres Cabrera   | 22507322 |
 
 ---
 
@@ -20,37 +20,51 @@ Este proyecto implementa inferencia sobre el modelo **T5 (Text-to-Text Transfer 
 
 ## 2. Introducción
 
-### Artículo base
+### 2.1 Artículo base
 
-**Raffel, C., et al. (2020). "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer."** *Journal of Machine Learning Research*, 21(140), 1-67.
+**Raffel, C., et al. (2020). "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer."** *Journal of Machine Learning Research*, 21(140), 1–67.
 
-- Artículo en HuggingFace Papers: [https://huggingface.co/papers/1910.10683](https://huggingface.co/papers/1910.10683)
-- Repositorio original (Google Research): [https://github.com/google-research/text-to-text-transfer-transformer](https://github.com/google-research/text-to-text-transfer-transformer)
-- Pesos preentrenados utilizados: [google/t5-efficient-small](https://huggingface.co/google/t5-efficient-small) y las variantes del modelo T5 original en [T5 community](https://huggingface.co/google-t5)
+- Ficha del artículo en HuggingFace Papers: [https://huggingface.co/papers/1910.10683](https://huggingface.co/papers/1910.10683)
+- Repositorio de código original (Google Research): [https://github.com/google-research/text-to-text-transfer-transformer](https://github.com/google-research/text-to-text-transfer-transformer)
+- Pesos preentrenados utilizados: [google/t5-efficient-small](https://huggingface.co/google/t5-efficient-small) y variantes de la arquitectura original en [T5 community](https://huggingface.co/google-t5)
 
-### Contexto y problemática
+### 2.2 Contexto y problemática
 
-Antes de T5, el estado del arte en procesamiento de lenguaje natural requería un modelo especializado para cada tarea: uno para traducción automática, otro para resumen de texto, otro para clasificación de sentimientos, otro para respuesta a preguntas. Este enfoque tenía tres problemas fundamentales:
+Con anterioridad al desarrollo y consolidación del modelo Text-to-Text Transfer Transformer (T5), el estado del arte en el campo del procesamiento del lenguaje natural (NLP) estaba bajo un paradigma fragmentado. La optimización de tareas requería el diseño, entrenamiento y despliegue de arquitecturas altamente especializadas y segregadas según la naturaleza de la salida esperada. De este modo, los sistemas destinados a la traducción automática diferían en topología y funciones de pérdida de aquellos orientados al resumen de texto, la clasificación de sentimientos o la respuesta automatizada a preguntas. Esta metodología tradicional presentaba tres limitaciones:
 
-1. **Fragmentación:** cada tarea requería arquitectura, datos y proceso de entrenamiento propios.
-2. **Ineficiencia:** los aprendizajes de una tarea no se transferían a otras.
-3. **Escalabilidad:** añadir una nueva tarea implicaba construir un sistema completamente nuevo.
+1. **Fragmentación de arquitecturas:** Cada tarea lingüística demandaba un pipeline de ingeniería independiente, lo que implicaba una gestión dispar de hiperparámetros, esquemas de tokenización particulares y configuraciones de red específicas para cada caso de uso.
+2. **Ineficiencia en la transferencia de conocimiento:** El aprendizaje de representaciones contextuales abstractas obtenido por un modelo en un dominio específico no se transfería de forma nativa hacia tareas, limitando el aprovechamiento del aprendizaje por transferencia y obligando a realizar costosos entrenamientos desde cero.
+3. **Restricciones de escalabilidad:** La incorporación de una nueva capacidad lingüística o nuevas tareas no podía aprovechar la infraestructura preexistente, demandando el aprovisionamiento, diseño y validación de un ecosistema computacional completamente nuevo.
 
-### Solución propuesta por T5
+### 2.3 Solución propuesta por T5
 
-T5 propone que **todas las tareas de NLP pueden reformularse como un problema de texto a texto**. El modelo recibe una cadena de texto con un prefijo que identifica la tarea y produce otra cadena de texto como salida:
+Para resolver las ineficiencias de la fragmentación de tareas, la arquitectura T5 reformula metodológicamente el procesamiento de datos secuenciales al unificar todos los problemas de NLP bajo un framework operativo conceptualizado como un mapeo de texto a texto. Bajo esta abstracción, el modelo no altera su topología de red ni sus capas de salida en función de la tarea; en su lugar, recibe como secuencia de entrada una cadena de caracteres que incluye de forma explícita un prefijo léxico que instruye al sistema sobre la operación condicional esperada, produciendo otra cadena de caracteres como secuencia de salida.
 
+Esta estandarización permite que un único conjunto jerárquico de pesos preentrenados resuelva de forma simultánea problemas computacionales dispares. A continuación, se describen los flujos operacionales que caracterizan esta unificación de tareas:
+
+**Flujo 1: Resumen abstracto de texto**
+```mermaid
+graph LR
+    A["Entrada: `summarize: [texto largo]`"] --> B[Modelo T5 unificado] --> C["Salida: `[resumen generado]`"]
 ```
-Entrada:  "summarize: [texto largo]"         → Salida: "[resumen]"
-Entrada:  "translate English to French: [x]" → Salida: "[traducción]"
-Entrada:  "cola sentence: [oración]"         → Salida: "acceptable" o "unacceptable"
+
+**Flujo 2: Traducción lingüística condicional**
+```mermaid
+graph LR
+    A["Entrada: `translate English to French: [texto]`"] --> B[Modelo T5 unificado] --> C["Salida: `[traducción generada]`"]
 ```
 
-Un único modelo preentrenado resuelve todas estas tareas de forma unificada.
+**Flujo 3: Evaluación de aceptabilidad lingüística (CoLA)**
+```mermaid
+graph LR
+    A["Entrada: `cola sentence: [oración a evaluar]`"] --> B[Modelo T5 unificado] --> C{"Salida lógica: `acceptable` o `unacceptable`"}
+```
 
-### Objetivo del proyecto
+### 2.4 Objetivo del proyecto
 
-Implementar inferencia funcional con T5 para resumen automático de texto, desarrollar una interfaz interactiva que permita explorar la arquitectura y los mecanismos de atención, y demostrar el concepto text-to-text durante la sustentación.
+El propósito central de esta investigación aplicada consiste en implementar un entorno funcional de inferencia utilizando la arquitectura Transformer encoder-decoder de T5, optimizada específicamente para la tarea de resumen automático de texto en inglés. Se busca estructurar un pipeline capaz de procesar secuencias lingüísticas de alta densidad conceptual, integrando variantes arquitectónicas de escala reducida y de alta eficiencia como t5-efficient-small.
+
+A nivel técnico y metodológico, el proyecto persigue el desarrollo de una interfaz interactiva basada en Streamlit que actúe como un laboratorio visual; a través de este módulo, se auditarán en tiempo real los coeficientes matemáticos de la matriz de atención cruzada mediante mapas térmicos bidimensionales para demostrar la viabilidad y robustez del paradigma text-to-text, validando la reducción de la latencia y la tasa de compresión bajo entornos de hardware limitados.
 
 ---
 
