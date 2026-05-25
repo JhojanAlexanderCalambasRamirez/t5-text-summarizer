@@ -207,72 +207,98 @@ Durante la primera ejecución del script, los archivos de parametrización binar
 
 ## 5. Desarrollo e Implementación
 
-### Estructura del proyecto
+### 5.1 Estructura del proyecto
 
 ```
-T5/
-├── README.md          ← documentación completa (este archivo)
-├── inference.py       ← lógica T5: carga, generación, atención
-├── app.py             ← interfaz Streamlit
-├── requirements.txt   ← dependencias
-└── screenshots/       ← capturas de pantalla propias
+t5-text-summarizer/
+├── README.md        : Documentación completa del proyecto
+├── inference.py     : Lógica de ejecución de T5: carga de pesos, canal de generación y extracción de atención
+├── app.py           : Interfaz gráfica desarrollada con la plataforma Streamlit
+├── requirements.txt : Declaración de dependencias del proyecto
+└── screenshots/     : Registro de capturas de pantalla de la aplicación en funcionamiento
 ```
 
-**Principios de diseño:** alta cohesión (cada archivo tiene una sola responsabilidad) y bajo acoplamiento (`app.py` solo conoce la interfaz pública de `inference.py`).
+El diseño de la aplicación web se rige bajo principios de ingeniería de software orientados a la modularidad. Se garantiza una alta cohesión al delimitar las responsabilidades donde `inference.py` encapsula estrictamente el ciclo de vida del modelo y `app.py` gestiona el estado de los componentes de la interfaz de usuario. Asimismo, se preserva un bajo acoplamiento debido a que la interfaz gráfica interactúa exclusivamente con los métodos públicos expuestos por la capa de inferencia, aislando las mutaciones de los tensores de la vista del usuario.
 
-### Cómo ejecutar el proyecto
+### 5.2 Entorno de ejecución y configuración del sistema
+
+Para garantizar la reproducibilidad del proyecto y evitar colisiones entre versiones de dependencias en el sistema operativo local, se requiere el aislamiento de un entorno de ejecución mediante un entorno virtual de Python.
 
 **1. Clonar el repositorio**
 ```bash
-git clone <url-del-repositorio>
-cd T5
+git clone git@github.com:JhojanAlexanderCalambasRamirez/t5-text-summarizer.git
+cd t5-text-summarizer
 ```
 
-**2. Instalar dependencias**
+**2. Crear e inicializar el entorno virtual**
+
+En sistemas operativos basados en UNIX (Linux/macOS):
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+En sistemas operativos Windows con PowerShell:
+```bash
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+**3. Instalar dependencias**
+
+Con el entorno virtual activo, ejecute la instalación de los paquetes requeridos:
 ```bash
 pip install -r requirements.txt
 ```
 
-**3. Ejecutar la aplicación**
+**4. Desplegar la aplicación web**
 ```bash
 streamlit run app.py
 ```
 
-La primera ejecución descarga los pesos (~250 MB para t5-efficient-small). Las siguientes usan la caché local.
+### 5.3 Flujo de preprocesamiento e inferencia
 
-### Flujo de preprocesamiento e inferencia
+El procesamiento de datos secuenciales dentro de la arquitectura T5 opera bajo un orden secuencial, el cual mapea tokens en representaciones vectoriales continuas que posteriormente vuelven a proyectarse sobre el espacio del vocabulario. El flujo se modela a continuación:
 
-```
-1. Usuario ingresa texto en la interfaz
-        ↓
-2. Se añade el prefijo de tarea:
-   "summarize: " + texto_usuario
-        ↓
-3. Tokenización SentencePiece:
-   texto → secuencia de IDs de tokens
-   (max 512 tokens, truncación si es necesario)
-        ↓
-4. Encoder forward pass:
-   IDs → embeddings → N bloques de atención
-   → representaciones contextuales H
-        ↓
-5. Decoder autoregresivo (beam search, N beams):
-   Para cada paso t:
-   a. Masked self-attention sobre tokens ya generados
-   b. Cross-attention: Q=decoder, K=H, V=H
-   c. FFN → distribución sobre vocabulario
-   d. Selección del token con mayor probabilidad
-   e. Repetir hasta </s> o max_length
-        ↓
-6. Decodificación:
-   IDs de salida → texto del resumen
-        ↓
-7. Visualización en Streamlit
+```mermaid
+graph TD
+    A[Ingreso de texto fuente en Streamlit] --> B[Adición del prefijo de tarea: summarize: ]
+    B --> C[Tokenización con SentencePiece]
+    C --> D[Truncación y delimitación a un máximo de 512 tokens]
+    D --> E[Paso hacia adelante en el Bloque Encoder]
+    E --> F[Generación de matrices de Claves K y Valores V contextuales]
+    F --> G[Activación del Decoder Autoregresivo bajo Beam Search]
+    G --> H[Cálculo de Masked Self-Attention en Tokens Previos]
+    H --> I[Cálculo de Cross-Attention usando Q del Decoder con K y V del Encoder]
+    I --> J[Proyección lineal e inversión del Softmax en Capas Densas]
+    J --> K[Selección y realimentación del token óptimo]
+    K --> L{¿Se emite el token fin de secuencia o alcanza longitud máxima?}
+    L --> |No| H
+    L --> |Si| M[Decodificación de identificadores numéricos a texto plano]
+    M --> N[Renderizado del resumen automático y mapa térmico en la interfaz]
 ```
 
-### Extracción de pesos de atención
+### 5.4 Carga de pesos preentrenados
 
-Para visualizar la atención cruzada se realiza un forward pass adicional con `output_attentions=True`:
+El proceso de aprovisionamiento de parámetros se realiza abstrayendo las APIs nativas de inicialización de Hugging Face. El modelo implementa las estructuras `T5Tokenizer` y `T5ForConditionalGeneration` para desacoplar el procesamiento lexicográfico del cómputo tensorial de la red neuronal.
+
+```python
+identificador_modelo="google/t5-efficient-small"
+# Inicialización del tokenizador basado en el algoritmo de subpalabras SentencePiece
+tokenizer = AutoTokenizer.from_pretrained(identificador_modelo)
+
+# Carga de la arquitectura Encoder-Decoder y mapeo de pesos optimizados para inferencia condicional
+model = T5ForConditionalGeneration.from_pretrained(identificador_modelo)
+
+# Configuración explícita del modo de evaluación para desactivar capas estocásticas de Dropout
+model.eval()
+```
+
+Al invocar el método model.eval(), PyTorch reconfigura internamente los módulos de la red para desactivar mecanismos probabilísticos propios de la fase de entrenamiento, tales como el dropout y las actualizaciones dinámicas de la normalización por media móvil, asegurando que la inferencia sea completamente determinista ante entradas idénticas.
+
+### 5.5 Extracción de los pesos de atención cruzada
+
+Para auditar el comportamiento del puente que conecta los bloques encoder y decoder, la infraestructura requiere interceptar la distribución probabilística calculada por la función softmax en la última capa de la red neuronal. Durante un paso de inferencia ordinario, PyTorch destruye los grafos intermedios de activación para conservar memoria en el dispositivo. Con el fin de forzar la persistencia de estos tensores sin alterar el flujo de cómputo autoregresivo, se parametriza la directiva `output_attentions=True`.
 
 ```python
 outputs = model(
@@ -281,11 +307,14 @@ outputs = model(
     output_attentions=True,
     return_dict=True,
 )
+
 # outputs.cross_attentions: tupla con tensor por capa
 # Forma: (batch, num_heads, dec_seq_len, enc_seq_len)
 cross_attn_last = outputs.cross_attentions[-1][0]  # última capa
 attn_avg = cross_attn_last.mean(dim=0)             # promedio de cabezas
 ```
+
+La matriz bidimensional resultante contiene los coeficientes normalizados de influencia semántica. Esta estructura de datos matemática es posteriormente inyectada en la biblioteca Seaborn dentro del módulo de visualización para estructurar las coordenadas espaciales del mapa térmico interactivo expuesto al usuario final.
 
 ---
 
