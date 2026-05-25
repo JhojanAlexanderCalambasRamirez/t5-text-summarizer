@@ -26,7 +26,7 @@ Este proyecto implementa inferencia sobre el modelo **T5 (Text-to-Text Transfer 
 
 - Artículo en HuggingFace Papers: [https://huggingface.co/papers/1910.10683](https://huggingface.co/papers/1910.10683)
 - Repositorio original (Google Research): [https://github.com/google-research/text-to-text-transfer-transformer](https://github.com/google-research/text-to-text-transfer-transformer)
-- Pesos preentrenados utilizados: [google/t5-efficient-small](https://huggingface.co/google/t5-efficient-small)
+- Pesos preentrenados utilizados: [google/t5-efficient-small](https://huggingface.co/google/t5-efficient-small) y las variantes del modelo T5 original en [T5 community](https://huggingface.co/google-t5)
 
 ### Contexto y problemática
 
@@ -54,96 +54,89 @@ Implementar inferencia funcional con T5 para resumen automático de texto, desar
 
 ---
 
-## 3. Marco Teórico
+## 3. Marco teórico
 
-### 3.1 Arquitectura Transformer Encoder-Decoder
+### 3.1 Arquitectura Transformer Encoder-Decoder original y la variante T5
 
-T5 se basa en la arquitectura Transformer original propuesta por Vaswani et al. (2017), en su variante encoder-decoder. La arquitectura procesa secuencias de tokens en dos etapas:
+La arquitectura Transformer convencional, introducida por Vaswani et al. [2], supuso una ruptura con los modelos basados en redes neuronales recurrentes y convolucionales al fundamentar el procesamiento de secuencias exclusivamente en mecanismos de atención. 
 
-```
-Texto de entrada
-       ↓
-  [Tokenización]
-       ↓
-   ENCODER  ──────────────────────────────────────────────
-   │  Bloque × N                                         │
-   │  ├── Multi-Head Self-Attention                      │
-   │  │    Q = XW_Q,  K = XW_K,  V = XW_V               │
-   │  │    (X = tokens de entrada)                       │
-   │  ├── Feed-Forward Network                           │
-   │  └── Layer Norm + Residual                          │
-   └──── Representaciones contextuales H                 │
-                                                         │ Cross-Attention
-   DECODER  ◄────────────────────────────────────────────┘
-   │  Bloque × N                                         
-   │  ├── Masked Self-Attention                          
-   │  │    (tokens ya generados, no puede ver el futuro) 
-   │  ├── Cross-Attention  ← MECANISMO CLAVE             
-   │  │    Q = decoder,  K = H,  V = H                   
-   │  ├── Feed-Forward Network                           
-   │  └── Layer Norm + Residual                          
-   └──── Distribución sobre vocabulario → token generado 
-```
+El bloque del encoder transforma una secuencia de representaciones continuas de tokens de entrada $X = (x_1, ..., x_n)$ en una secuencia de vectores ocultos o contextualizados $Z = (z_1, ..., z_n)$. Cada capa del encoder consta de dos subcapas principales: un mecanismo de atención multi-cabeza autorregresivo bidireccional y una red neuronal Position-Wise Feed-Forward. 
 
-### 3.2 Mecanismo de Atención Multi-Cabeza
+Por otra parte, el bloque del decoder genera una secuencia de salida $Y = (y_1, ..., y_m)$ de forma autorregresiva, es decir, token a token, utilizando las representaciones contextuales $Z$ provistas por el encoder y los tokens previamente generados. El decoder clásico añade una tercera subcapa intermedia dedicada a la atención cruzada (cross-attention), la cual conecta funcionalmente ambos bloques.
 
-El corazón del Transformer es la atención por producto escalado (*Scaled Dot-Product Attention*):
+![encoder-decoder.png](screenshots/encoder-decoder.png)
 
-```
-Attention(Q, K, V) = softmax( QKᵀ / √d_k ) · V
-```
+El modelo Text-to-Text Transfer Transformer (T5), formulado por Raffel et al. [1], adopta esta estructura secuencial clásica, pero introduce modificaciones estructurales fundamentales para optimizar la eficiencia y la estabilidad del gradiente durante el aprendizaje por transferencia a gran escala. A diferencia de las tendencias contemporáneas que simplificaron la arquitectura hacia configuraciones de solo encoder como BERT o solo decoder como GPT, T5 sostiene que mantener la arquitectura encoder-decoder resulta óptimo para resolver tareas generales de secuencias complejas de texto a texto.
 
-**¿Qué es cada tensor?**
+### 3.2 Mecanismo Multi-Head Attention
 
-| Tensor | Generación | Función |
-|--------|-----------|---------|
-| **Q** (Query) | `Q = X · W_Q` — proyección lineal de la secuencia query | "¿Qué información estoy buscando?" |
-| **K** (Key)   | `K = X · W_K` — proyección lineal de la secuencia key   | "¿Qué información puedo ofrecer?" |
-| **V** (Value) | `V = X · W_V` — proyección lineal de la secuencia value | "El contenido real que entrego" |
+El núcleo operacional de la arquitectura Transformer es la **Scaled Dot-Product Attention**. Este mecanismo computa la relevancia mutua entre los elementos de las secuencias mapeando matrices de consultas ($Q$), claves ($K$) y valores ($V$). Las proyecciones lineales se obtienen a partir de una matriz de entrada de activaciones $X$ multiplicada por matrices de pesos entrenables, definidas formalmente de la siguiente manera.
 
-El término `√d_k` normaliza los productos punto para evitar gradientes demasiado pequeños cuando la dimensionalidad `d_k` es grande (problema de saturación del softmax).
+La matriz de consultas se expresa como:
+$$Q = XW_Q$$
 
-**Multi-Head Attention:** en lugar de aplicar una sola función de atención, T5 aplica `h` funciones de atención en paralelo sobre subespacios proyectados de menor dimensión y concatena los resultados:
+La matriz de claves se expresa como:
+$$K = XW_K$$
 
-```
-MultiHead(Q, K, V) = Concat(head_1, ..., head_h) · W_O
-donde head_i = Attention(Q · W_Q_i, K · W_K_i, V · W_V_i)
-```
+La matriz de valores se expresa como:
+$$V = XW_V$$
 
-Esto permite al modelo atender simultáneamente a distintos aspectos del texto desde diferentes posiciones.
+Donde las dimensiones de los pesos corresponden a $W_Q \in \mathbb{R}^{d_{model} \times d_k}$, $W_K \in \mathbb{R}^{d_{model} \times d_k}$ y $W_V \in \mathbb{R}^{d_{model} \times d_v}$. La función matemática que rige la asignación de pesos de atención y la agregación del contexto se define mediante la ecuación de producto escalar escalado:
 
-### 3.3 Tipos de Atención en T5
+$$Attention(Q, K, V) = softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
 
-| Tipo | Dónde ocurre | Q | K | V |
-|------|-------------|---|---|---|
-| **Self-Attention del Encoder** | Dentro del encoder | Tokens de entrada | Tokens de entrada | Tokens de entrada |
-| **Masked Self-Attention del Decoder** | Dentro del decoder | Tokens generados | Tokens generados | Tokens generados |
-| **Cross-Attention** | Decoder → Encoder | Decoder (query) | Encoder output | Encoder output |
+El factor de escala $\frac{1}{\sqrt{d_k}}$ mitiga el crecimiento desproporcionado de las magnitudes de los productos escalares cuando la dimensionalidad $d_k$ es elevada, evitando que la función softmax sature en regiones de gradiente infinitesimalmente pequeño.
 
-La **Cross-Attention** es el mecanismo que conecta encoder y decoder: el decoder "pregunta" al encoder qué partes del texto original son relevantes para generar cada token de salida.
+![scaled_dot-product_attention_multi-head_attention.png](screenshots/scaled_dot-product_attention_multi-head_attention.png)
 
-### 3.4 Innovaciones de T5
+Para enriquecer la capacidad de representación, se implementa la Multi-Head Attention. En lugar de realizar una única operación de atención sobre las dimensiones globales, el modelo proyecta linealmente $h$ veces las consultas, claves y valores de forma independiente en subespacios dimensionales reducidos. Cada proyección se procesa en paralelo mediante la función de atención escalada, y las salidas resultantes se concatenan para ser proyectadas nuevamente a la dimensión original del modelo:
 
-**1. Framework Text-to-Text unificado**  
-La contribución principal del artículo: reformular todas las tareas NLP como seq2seq usando prefijos de tarea. Esto permite preentrenar un único modelo y adaptarlo a cualquier tarea cambiando solo el prefijo de entrada, sin modificar la arquitectura.
+$$MultiHead(Q, K, V) = Concat(head_1, ..., head_h)W_O$$
 
-**2. Relative Position Bias**  
-El Transformer original suma un encoding posicional sinusoidal fijo a los embeddings. T5 introduce un sesgo aprendido que se añade directamente a los logits de atención (`QKᵀ`) en función de la distancia relativa entre tokens:
+Donde cada cabeza individual se calcula como:
+$$head_i = Attention(QW_{Q,i}, KW_{K,i}, VW_{V,i})$$
 
-```
-Atención modificada = softmax( (QKᵀ + b(i-j)) / √d_k ) · V
-```
+Los parámetros de proyección por cada cabeza corresponden a las matrices de pesos $W_{Q,i} \in \mathbb{R}^{d_{model} \times d_k}$, $W_{K,i} \in \mathbb{R}^{d_{model} \times d_k}$, $W_{V,i} \in \mathbb{R}^{d_{model} \times d_v}$ y la proyección de salida $W_O \in \mathbb{R}^{h d_v \times d_{model}}$. Esta descomposición permite que el sistema atienda simultáneamente a información proveniente de diferentes subespacios de representación y distintas coordenadas posicionales.
 
-donde `b(i-j)` es un escalar aprendido que depende del desplazamiento relativo entre posiciones. Esto mejora la generalización a secuencias más largas que las vistas durante el entrenamiento.
+### 3.3 Tipos de atención en la arquitectura T5
 
-**3. Pre-entrenamiento con Span Corruption sobre C4**  
-T5 se preentrenó en el corpus C4 (Colossal Clean Crawled Corpus, 750 GB de texto web limpiado) usando un objetivo de corrupción de spans: se enmascaran spans aleatorios del texto (no tokens individuales como en BERT) y el modelo aprende a reconstruirlos.
+La variante T5 distribuye el mecanismo de Multi-Head Attention en tres modalidades funcionales diferenciadas a lo largo de su estructura secuencial, controlando de forma estricta el flujo de información y las dependencias temporales.
 
-**4. Sin bias en capas densas**  
-Las matrices de proyección Q, K, V y la FFN no tienen términos de bias, reduciendo el número de parámetros sin degradar el rendimiento.
+| Tipo de atención                      | Dónde                                 | $Q$                                                                               | $K$                                                                                                         | $V$                                                                                                         | Propósito                                                                                                                                                                                                                                                                            |
+|:--------------------------------------|:--------------------------------------|:----------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Self-Attention del Encoder**        | Capas internas del bloque Encoder     | Derivada de las activaciones de la capa previa del encoder                        | Derivada de las activaciones de la capa previa del encoder                                                  | Derivada de las activaciones de la capa previa del encoder                                                  | Permite una codificación completamente bidireccional, donde cada token del texto de entrada atiende a todos los demás tokens de la secuencia sin restricciones de causalidad.                                                                                                        |
+| **Masked Self-Attention del Decoder** | Capas inferiores del bloque Decoder   | Derivada de las activaciones de la capa previa del decoder                        | Derivada de las activaciones de la capa previa del decoder                                                  | Derivada de las activaciones de la capa previa del decoder                                                  | Limita el campo receptivo mediante una máscara causal que inicializa con valor de infinito negativo los elementos superiores de la matriz de atención, previniendo que el decoder acceda a información de tokens futuros durante el entrenamiento autoregresivo.                     |
+| **Cross-Attention**                   | Subcapa intermedia del bloque Decoder | Proviene directamente de la normalización de la subcapa previa dentro del decoder | Proviene directamente de las representaciones contextuales finales generadas por la última capa del encoder | Proviene directamente de las representaciones contextuales finales generadas por la última capa del encoder | Actúa como el puente de transferencia de información. El decoder emite consultas para buscar correspondencias semánticas dentro de las claves y valores del encoder, extrayendo el conocimiento sintáctico de la secuencia original necesario para guiar la generación de la salida. |
 
-**5. Layer Normalization pre-norm**  
-T5 aplica la normalización antes de la sublayer (pre-norm) en lugar de después (post-norm), lo que estabiliza el entrenamiento de modelos muy profundos.
+### 3.4 Innovaciones arquitectónicas de T5
+
+El desarrollo de T5 introdujo variaciones respecto al diseño de Vaswani de 2017 [2], redefiniendo los estándares de estabilidad en el entrenamiento y la flexibilidad en la transferencia de conocimiento de los modelos masivos de lenguaje.
+
+#### 3.4.1 Framework Text-to-Text unificado 
+
+La innovación principal propuesta por Raffel et al. [1] consiste en la unificación conceptual de todas las tareas del procesamiento de lenguaje natural bajo un único formato secuencial de entrada y salida de texto. Al anteponer un prefijo descriptivo explícito (por ejemplo, el prefijo de tarea para este proyecto consiste en la cadena de texto de entrada traducida a tokens como un comando explícito `summarize: `), el modelo reutiliza exactamente la misma arquitectura, la función de pérdida por entropía cruzada y la estrategia de decodificación para tareas estructuralmente diferentes como la traducción, la clasificación, la regresión y el resumen automático.
+
+#### 3.4.2 Sesgo de posición relativa o Relative Position Bias 
+
+T5 prescinde por completo de los embeddings de posición absoluta de naturaleza sinusoidal o aprendida aplicados directamente sobre la entrada del modelo. En su lugar, implementa un sesgo posicional relativo donde los logits de atención se modifican en función de la distancia matemática existente entre el token de consulta y el token de clave. La función de atención modificada adopta la siguiente formulación matemática:
+
+$$Attention(Q, K, V) = softmax\left(\frac{QK^T}{\sqrt{d_k}} + B\right)V$$
+
+Donde $B$ representa una matriz de sesgo posicional entrenable. Para optimizar la eficiencia computational, T5 emplea una asignación por compartimentos logarítmicos (logarithmic bucketing), la cual asigna un parámetro de sesgo único para distancias relativas cortas y agrupa distancias mayores en un número fijo de categorías. Esta innovación otorga una capacidad de generalización superior al procesar secuencias significativamente más extensas que aquellas presentes durante el régimen de preentrenamiento.
+
+#### 3.4.3 Preentrenamiento mediante corrupción de fragmentos o Span Corruption en C4 
+
+En contraposición al enmascaramiento de tokens unitarios implementado en arquitecturas tradicionales como BERT, T5 fundamenta su preentrenamiento auto-supervisado en la tarea de corrupción de fragmentos continuos de texto, reemplazándolos con sentinel tokens especiales. Este proceso se ejecutó sobre el conjunto de datos Colossal Clean Crawled Corpus o C4, un corpus de aproximadamente 750 GB de texto web filtrado mediante reglas heurísticas estrictas para remover contenido repetitivo o sintácticamente defectuoso. Esta aproximación entrena de forma nativa la naturaleza generativa del bloque decoder para la reconstrucción secuencial de secuencias lingüísticas coherentes.
+
+![span-corruption.png](screenshots/span-corruption.png)
+
+#### 3.4.4 Arquitectura de linealidad sin sesgo o Bias-Free Dense Layers 
+
+Con el propósito de optimizar el consumo de memoria en hardware de aceleración masiva y suprimir parámetros redundantes, T5 elimina por completo los vectores de sesgo aditivo en todas las transformaciones lineales asociadas a las proyecciones densas de consultas, claves y valores, así como en las capas internas de la Feed-Forward Network. Las operaciones correspondientes conservan estrictamente una naturaleza multiplicativa de matrices de pesos ponderados.
+
+#### 3.4.5 Estabilización por RMSNorm en configuración Pre-Norm 
+
+T5 modifica la topología de las conexiones residuales del Transformer clásico. En lugar de aplicar la normalización de capa de manera posterior a la suma residual, sitúa el bloque de normalización de forma previa a la ejecución de cada subcapa, manteniendo un canal libre para la propagación del gradiente en arquitecturas de gran profundidad. Adicionalmente, sustituye la técnica LayerNorm convencional por RMSNorm (Root Mean Square Normalization) formulada por Zhang y Sennrich [7]. Esta variante prescinde de la operación de centrado basada en la media y limita el cómputo exclusivamente al escalado por la raíz de la media de los cuadrados, lo que reduce el costo computational por iteración en el orden del 7-10% sin detrimento de la convergencia de la red.
 
 ---
 
@@ -353,3 +346,5 @@ El mapa de calor de atención cruzada revela el comportamiento del mecanismo Q-K
 [5] T. Wolf et al., "Transformers: State-of-the-Art Natural Language Processing," in *Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations*, pp. 38–45, 2020.
 
 [6] HuggingFace, "Papers with Code — T5," 2019. [Online]. Available: https://huggingface.co/papers/1910.10683
+
+[7] B. Zhang and R. Sennrich, "Root Mean Square Layer Normalization," in Advances in Neural Information Processing Systems, vol. 32, 2019.
