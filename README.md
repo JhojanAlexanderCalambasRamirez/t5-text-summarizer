@@ -409,25 +409,25 @@ La evaluación comparativa de las distintas configuraciones de parámetros evide
 
 ### 7.1 Aprendizajes
 
-- El framework text-to-text de T5 demuestra que la unificación de tareas NLP no solo es posible sino que mejora el rendimiento general al compartir representaciones entre tareas.
-- La **atención cruzada** es el mecanismo que hace funcionar la conexión encoder-decoder: el decoder literalmente "consulta" el texto de entrada en cada paso de generación, y esto es observable y visualizable directamente en los pesos Q-K-V.
-- El **Relative Position Bias** es una innovación que mejora significativamente la generalización a secuencias largas comparado con el encoding posicional absoluto.
-- Los pesos preentrenados de HuggingFace permiten implementar inferencia de calidad sin recursos de entrenamiento, lo que democratiza el acceso a modelos de lenguaje avanzados.
+1. El framework text-to-text propuesto por la arquitectura T5 demuestra que la convergencia de diversas tareas de NLP bajo un único canal de ejecución secuencial es viable y optimiza la consistencia semántica general. Al compartir representaciones ocultas y parámetros dentro de un mismo espacio vectorial.
+2. El mecanismo de atención cruzada permite el funcionamiento síncrono del sistema secuencial. Mediante la intercepción y análisis empírico de las matrices jerárquicas de consultas, claves y valores, se constata experimentalmente que el bloque decoder realiza una consulta dinámica y ponderada sobre los estados contextuales del encoder en cada paso de tiempo discreto.
+3. La implementación de la matriz de sesgo de posición relativa representa una innovación de ingeniería en comparación con las codificaciones posicionales de naturaleza sinusoidal. Este mecanismo dota a la red neuronal de una flexibilidad geométrica, permitiendo extrapolar dependencias de largo alcance y mantener la estabilidad de la inferencia en secuencias con longitudes de contexto variables y superiores a los umbrales estándar de entrenamiento.
+4. El despliegue de parámetros preentrenados distribuidos a través del ecosistema de Hugging Face demuestra la viabilidad de transferir capacidades cognitivas avanzadas hacia entornos locales con recursos computacionales restrictivos.
 
-### 7.2 Limitaciones
+### 7.2 Limitaciones del sistema
 
-- **Idioma:** El modelo base está optimizado para inglés. Para otros idiomas se requieren variantes multilingües (mT5).
-- **Alucinaciones:** T5 puede generar texto gramaticalmente correcto pero factualmente incorrecto, especialmente con textos que contienen datos numéricos o nombres propios poco frecuentes.
-- **Longitud máxima de contexto:** 512 tokens de entrada. Textos más largos se truncan, perdiendo información del final.
-- **Costo computacional:** El modelo `t5-efficient-base` requiere GPU para inferencia en tiempo real en producción.
-- **Sin memoria conversacional:** Cada inferencia es completamente independiente.
+1. Restricción idiomática inherente al corpus base: Los pesos del modelo implementado han sido optimizados de manera exclusiva sobre las distribuciones lingüísticas del idioma inglés recopiladas en el conjunto de datos C4. Por lo cual el sistema es incapaz de procesar o generar estructuras gramaticales coherentes en idioma español u otras lenguas sin la previa inyección de variantes masivas multilingües.
+2. Propenso a la generación de alucinaciones sintácticas: A pesar de exhibir una alta fluidez gramatical, la arquitectura T5 es susceptible de emitir secuencias de salida que, aunque formalmente correctas, carecen de veracidad. Esta vulnerabilidad se incrementa al procesar textos de entrada con una alta densidad de datos numéricos complejos, registros estructurados o nombres propios de baja frecuencia en el preentrenamiento.
+3. Delimitación de la longitud máxima del contexto: El modelo presenta un umbral fijado en un máximo de 512 tokens de entrada. Cualquier secuencia de datos que exceda este límite es sometida a un proceso de truncamiento determinista, lo que induce una pérdida de información contextual localizada en el segmento final del texto original y limita la capacidad de resumir documentos extensos.
+4. Alta demanda de recursos computacionales: Aunque la distribución `efficient` reduce significativamente el consumo memoria, la ejecución de variantes como `t5-efficient-base` en entornos de CPU pura introduce latencias que penalizan la experiencia del usuario. El procesamiento autoregresivo en tiempo real bajo esquemas como beam search demanda la presencia de hardware acelerado por GPU.
+5. Ausencia de persistencia o memoria conversacional: Cada paso de ejecución en el canal de inferencia diseñado opera de forma independiente respecto a los estados previos del sistema. Al carecer de un mecanismo de retención o memoria de contexto entre ejecuciones, el sistema es incapaz de asimilar instrucciones de refinamiento secuencial.
 
 ### 7.3 Posibles mejoras
 
-- Fine-tuning sobre el dataset CNN/DailyMail para mejorar la calidad del resumen.
-- Integrar mT5 para soporte de español y otros idiomas.
-- Ampliar la interfaz para soportar múltiples tareas (traducción, Q&A, clasificación) demostrando el concepto text-to-text en toda su extensión.
-- Implementar visualización de la atención de encoder (self-attention) además de la cross-attention.
+1. Fine-tuning con el propósito de refinar las métricas de compresión y elevar la fidelidad conceptual del resumen, se contempla la optimización de los pesos de la última capa densa utilizando conjuntos de datos supervisados y orientados a la abstracción periodística.
+2. Migración hacia la infraestructura multilingüe de Google. Esta modificación permitirá expandir las capacidades operativas del sistema hacia el procesamiento nativo del idioma español.
+3. Con el fin de explotar el paradigma text-to-text, el sistema puede expandirse mediante la adición de módulos lógicos en la interfaz gráfica que permitan cambiar el prefijo de control. Esto permite al usuario ejecutar tareas simultáneas de traducción automática, clasificación semántica de sentimientos y corrección gramatical.
+4. Una adición metodológica relevante consiste en programar la captura de los tensores de autoatención pertenecientes al bloque encoder. Renderizar estas interacciones de forma simultánea con el mapa térmico de atención cruzada proveerá una auditoría omnidireccional del flujo de datos, permitiendo visualizar matemáticamente cómo la red codifica las dependencias internas de la secuencia de entrada antes de iniciar la decodificación.
 
 ---
 
