@@ -155,6 +155,8 @@ Con el propósito de optimizar el consumo de memoria en hardware de aceleración
 
 T5 modifica la topología de las conexiones residuales del Transformer clásico. En lugar de aplicar la normalización de capa de manera posterior a la suma residual, sitúa el bloque de normalización de forma previa a la ejecución de cada subcapa, manteniendo un canal libre para la propagación del gradiente en arquitecturas de gran profundidad. Adicionalmente, sustituye la técnica LayerNorm convencional por RMSNorm (Root Mean Square Normalization) formulada por Zhang y Sennrich [7]. Esta variante prescinde de la operación de centrado basada en la media y limita el cómputo exclusivamente al escalado por la raíz de la media de los cuadrados, lo que reduce el costo computational por iteración en el orden del 7-10% sin detrimento de la convergencia de la red.
 
+$$A_{i,j} = \frac{q_i k_j^T}{\sqrt{d_k}} + B(i-j)$$
+
 ### 3.5 Configuración de parámetros de T5 base
 
 El modelo T5-Base contiene aproximadamente 220 millones de parámetros con una configuración de parámetros total exacta de 222.855.168 pesos. Estos se basan en sus dimensiones estructurales principales: $d_{model} = 768$, $d_{ff} = 3072$, $d_{kv} = 64$, empleando 12 cabezas de atención y 12 capas tanto para el encoder como para el decoder.
@@ -167,8 +169,8 @@ La distribución matemática de estos parámetros se divide de la siguiente mane
   - Red neuronal Feed-Forward con **4.718.592** parámetros por capa, transformaciones de **768** a **3072** y viceversa, sin sesgo.
 - **Bloque del Decoder de 12 capas:** Es más complejo y suma un total de **113.246.208** parámetros. Cada capa individual procesa **9.437.184** parámetros, que incluyen:
   - Autoatención causal con **2.359.296** parámetros.
-  - Red posicional Feed-Forward con **4.718.592** parámetros.
   - Atención cruzada con **2.359.296** parámetros adicionales, 4 matrices de **768x768** para interactuar con el encoder.
+  - Red neuronal Feed-Forward con **4.718.592** parámetros.
 - **Sesgo de posición relativa:** Utiliza 32 buckets logarítmicos distribuidos en las 12 cabezas de atención. Añaden un margen menor de pesos entrenables compartidos entre todas las capas, que completan la suma hasta llegar a los **222.855.168** parámetros totales de la arquitectura.
 
 ---
