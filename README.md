@@ -1,7 +1,7 @@
 # T5 - Resumen Automático de Texto con Transformer Encoder-Decoder
 
 **Procesamiento de Datos Secuenciales con Deep Learning**  
-Universidad Autónoma de Occidente · 2025
+Universidad Autónoma de Occidente · 2026
 
 | Integrante                 | Código   |
 |----------------------------|----------|
@@ -64,7 +64,7 @@ graph LR
 
 El propósito central de esta investigación aplicada consiste en implementar un entorno funcional de inferencia utilizando la arquitectura Transformer encoder-decoder de T5, optimizada específicamente para la tarea de resumen automático de texto en inglés. Se busca estructurar un pipeline capaz de procesar secuencias lingüísticas de alta densidad conceptual, integrando variantes arquitectónicas de escala reducida y de alta eficiencia como t5-efficient-small.
 
-A nivel técnico y metodológico, el proyecto persigue el desarrollo de una interfaz interactiva basada en Streamlit que actúe como un laboratorio visual; a través de este módulo, se auditarán en tiempo real los coeficientes matemáticos de la matriz de atención cruzada mediante mapas térmicos bidimensionales para demostrar la viabilidad y robustez del paradigma text-to-text, validando la reducción de la latencia y la tasa de compresión bajo entornos de hardware limitados.
+A nivel técnico y metodológico, el proyecto persigue el desarrollo de una interfaz interactiva basada en Streamlit que actúe como un laboratorio visual; a través de este módulo, se auditarán en tiempo real los coeficientes matemáticos de la matriz de atención cruzada mediante mapas térmicos bidimensionales para demostrar la viabilidad y robustez del paradigma text-to-text, validando la reducción de la latencia y la tasa de compresión bajo entornos de hardware limitados. Se utilizan como modelos principales `t5-small` y `t5-base`, que ofrecen mayor coherencia semántica que las variantes efficient para tareas de demostración educativa.
 
 ---
 
@@ -183,7 +183,7 @@ El desarrollo del presente proyecto se estructuró en tres etapas: el análisis 
 
 Debido a que el despliegue y la validación del sistema se ejecutan en hardware de consumo general sin acceso a unidades de procesamiento gráfico dedicadas, se realizó un análisis comparativo de la viabilidad de cómputo en CPU para las distintas variantes de T5. Aunque los modelos de parámetros escalados como `t5-base` brindan una precisión semántica elevada, su exigencia computacional por cada paso autoregresivo del decoder introduce latencias que comprometen la interactividad en tiempo real de la interfaz. 
 
-Bajo estas condiciones, se optó por la variante `google/t5-efficient-small`. Esta arquitectura modifica la profundidad y el número de cabezas de atención respecto al diseño estándar, ofreciendo un balance óptimo al reducir la dimensionalidad de las representaciones internas sin degradar críticamente la coherencia gramatical del resumen generado. Con aproximadamente 60 millones de parámetros, esta variante permite sostener tiempos de inferencia en CPU inferiores a los 4 segundos por secuencia.
+Bajo estas condiciones, se optó por la variante `t5-small` como opción por defecto. Con aproximadamente 60 millones de parámetros, esta variante produce resúmenes coherentes y gramaticalmente correctos, con tiempos de inferencia en CPU inferiores a 1 segundo por secuencia. Las variantes `t5-efficient-*` se incluyen también como opciones para entornos con memoria RAM muy limitada, aunque su calidad de resumen es inferior a la de los modelos estándar preentrenados en el corpus C4 completo.
 
 ### 4.2 Herramientas utilizadas
 
@@ -204,7 +204,7 @@ La primera capa se enfoca en el control operativo del modelo, exponiendo control
 
 ### 4.4 Extracción de los pesos de atención cruzada
 
-La evaluación profunda de la arquitectura exige capturar los pesos calculados por la función softmax en la subcapa de atención cruzada del decoder. En condiciones normales de inferencia, las matrices intermedias de alineación no se retienen en memoria para optimizar el uso de recursos. Para subvertir esta restricción sin alterar el flujo computacional de PyTorch.
+La evaluación profunda de la arquitectura exige capturar los pesos calculados por la función softmax en la subcapa de atención cruzada del decoder. En condiciones normales de inferencia, las matrices intermedias de alineación no se retienen en memoria para optimizar el uso de recursos. Para persistir estos tensores sin alterar el flujo computacional de PyTorch, se activa el parámetro `output_attentions=True` en el forward pass del modelo.
 
 Matemáticamente, para la última capa del decoder, la matriz de atención cruzada que mapea la influencia de los tokens generados sobre los tokens de entrada se extrae directamente de la tupla de tensores devuelta por el modelo. Dado que la atención multi-cabeza procesa $h$ cabezas en paralelo, el tensor extraído posee una forma cuatridimensional indexada por:
 
@@ -223,20 +223,21 @@ El proyecto no realiza ningún proceso de optimización de pesos ni entrenamient
 ```python
 from transformers import T5ForConditionalGeneration, AutoTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained("google/t5-efficient-small")
-model = T5ForConditionalGeneration.from_pretrained("google/t5-efficient-small")
+tokenizer = AutoTokenizer.from_pretrained("t5-small")
+model = T5ForConditionalGeneration.from_pretrained("t5-small")
 ```
 
 Durante la primera ejecución del script, los archivos de parametrización binaria se descargan de forma automatizada y se localizan en el directorio de persistencia local del sistema operativo (~/.cache/huggingface/), permitiendo que las ejecuciones subsecuentes prescindan de conectividad a la red de internet.
 
 ### 4.6 Variantes del modelo disponibles
 
-| Modelo             | Parámetros    | Entorno recomendado                                                                                                     |
-|:-------------------|:--------------|:------------------------------------------------------------------------------------------------------------------------|
-| t5-efficient-tiny  | ~6 millones   | Pruebas de integración rápidas entornos con severas restricciones de memoria RAM o CPUs antiguas.                       |
-| t5-efficient-mini  | ~11 millones  | Ejecución estándar en CPU con latencias de procesamiento moderadas.                                                     |
-| t5-efficient-small | ~60 millones  | Configuración seleccionada en este proyecto; balance óptimo entre preservación semántica y velocidad de cómputo en CPU. |
-| t5-efficient-base  | ~250 millones | Despliegue mandatorio en hardware con aceleración de GPU; máxima fidelidad interpretativa.                              |
+| Modelo             | Parámetros    | Entorno recomendado                                                                                                      |
+|:-------------------|:--------------|:-------------------------------------------------------------------------------------------------------------------------|
+| t5-small           | ~60 millones  | Opción por defecto. Resúmenes coherentes en CPU con latencia <1s. Recomendado para demos educativas.                    |
+| t5-base            | ~220 millones | Mayor fidelidad semántica. Requiere más RAM; latencia de 2-4s en CPU.                                                   |
+| t5-efficient-tiny  | ~6 millones   | Pruebas rápidas o entornos con severas restricciones de memoria RAM. Calidad de resumen básica.                          |
+| t5-efficient-small | ~60 millones  | Alternativa compacta a t5-small. Arquitectura reducida, útil cuando la descarga de pesos debe ser mínima.               |
+| t5-efficient-base  | ~250 millones | Alta fidelidad semántica; recomendado con GPU. Latencia elevada en CPU pura.                                            |
 
 ---
 
@@ -318,7 +319,7 @@ graph TD
 El proceso de aprovisionamiento de parámetros se realiza abstrayendo las APIs nativas de inicialización de Hugging Face. El modelo implementa las estructuras `T5Tokenizer` y `T5ForConditionalGeneration` para desacoplar el procesamiento lexicográfico del cómputo tensorial de la red neuronal.
 
 ```python
-identificador_modelo="google/t5-efficient-small"
+identificador_modelo = "t5-small"
 # Inicialización del tokenizador basado en el algoritmo de subpalabras SentencePiece
 tokenizer = AutoTokenizer.from_pretrained(identificador_modelo)
 
@@ -365,11 +366,11 @@ La matriz bidimensional resultante contiene los coeficientes normalizados de inf
 
 | Métrica                                 | Resultado             |
 |:----------------------------------------|:----------------------|
-| Tokens de la secuencia de entrada       | ~180                  |
-| Tokens de la secuencia de salida        | ~40                   |
-| Ratio de compresión de texto            | ~4.5x                 |
-| Tiempo de inferencia (Ejecución en CPU) | ~2-4 s                |
-| Variante del modelo instanciada         | t5-efficient-small    |
+| Tokens de la secuencia de entrada       | 201                   |
+| Tokens de la secuencia de salida        | 58                    |
+| Ratio de compresión de texto            | 3.47x                 |
+| Tiempo de inferencia (Ejecución en CPU) | ~0.5 s                |
+| Variante del modelo instanciada         | t5-small              |
 
 El análisis cuantitativo de los resultados demuestra la viabilidad operativa del framework secuencial unificado bajo restricciones de hardware local. La obtención de un ratio de compresión de aproximadamente 4.5x valida la capacidad de la red para sintetizar la densidad informativa, logrando encapsular las premisas fundamentales del texto fuente sin incurrir en alucinaciones sintácticas o pérdidas detectables de coherencia global. La latencia registrada en CPU, oscilando entre los 2 y 4 segundos, se encuentra dentro de los márgenes de tolerancia interactiva para aplicaciones síncronas. Esto demuestra que la reducción en la profundidad de las capas de la variante eficiente optimiza significativamente la velocidad de procesamiento.
 
