@@ -1,9 +1,50 @@
-streamlit>=1.32.0
-transformers>=4.38.0
-torch>=2.1.0
-sentencepiece>=0.1.99
-matplotlib>=3.8.0
-seaborn>=0.13.0
-numpy>=1.24.0
-pandas>=2.0.0
-rouge-score>=0.1.2
+# requirements.txt
+# ----------------
+# Dependencias del proyecto T5 — Resumen Automatico de Texto.
+#
+# Compatible con:
+#   macOS Intel               : CPU
+#   macOS Apple Silicon (M1/M2/M3): CPU + MPS (Metal Performance Shaders)
+#   Windows 10/11             : CPU
+#
+# Instrucciones de instalacion:
+#
+#   1. Crear entorno virtual (recomendado):
+#        python -m venv .venv
+#        source .venv/bin/activate        # macOS / Linux
+#        .venv\Scripts\activate           # Windows
+#
+#   2. Instalar dependencias:
+#        pip install -r requirements.txt
+#
+#   3. Ejecutar la aplicacion:
+#        streamlit run app.py
+#
+# Para usuarios con GPU NVIDIA (CUDA), usar requirements-cuda.txt en su lugar.
+# Consultar ese archivo para instrucciones de instalacion con CUDA.
+
+# Modelos y tokenizacion
+transformers>=4.40.0      # arquitectura T5ForConditionalGeneration y AutoTokenizer
+sentencepiece>=0.2.0      # tokenizador SentencePiece que usa T5 (subword tokenization)
+
+# Framework de deep learning
+# La version de PyPI incluye soporte CPU para Windows y macOS Intel.
+# En macOS Apple Silicon (M1/M2/M3), PyTorch detecta y activa MPS automaticamente
+# si la version del sistema operativo es macOS >= 12.3.
+torch>=2.0.0
+
+# Interfaz grafica
+streamlit>=1.35.0         # servidor web y componentes de UI reactivos
+
+# Visualizacion
+matplotlib>=3.7.0         # generacion de figuras (base de seaborn)
+seaborn>=0.13.0           # heatmap de atencion cruzada
+
+# Utilidades numericas y de datos
+numpy>=1.24.0             # manipulacion de la matriz de atencion (ndarray 2D)
+pandas>=2.0.0             # tablas en pestanas de benchmark y ROUGE
+
+# Evaluacion de calidad del resumen (opcional)
+# Si no esta instalado, la pestana ROUGE muestra un mensaje de instalacion
+# en lugar de error critico. Instalar con: pip install rouge-score
+rouge-score>=0.1.2        # metricas ROUGE-1, ROUGE-2 y ROUGE-L

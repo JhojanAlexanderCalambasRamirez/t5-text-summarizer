@@ -110,7 +110,7 @@ MODEL_METADATA = {
 
 
 class T5Model:
-    """Wrapper sobre T5ForConditionalGeneration de HuggingFace Transformers."""
+    # Wrapper sobre T5ForConditionalGeneration de HuggingFace Transformers.
 
     def __init__(self, model_id: str = "t5-small"):
         # --- Seleccion del dispositivo de computo ---
@@ -135,7 +135,7 @@ class T5Model:
     # -----------------------------------------------------------------------
 
     def get_model_info(self) -> dict:
-        """Devuelve dimensiones reales del modelo cargado desde su config."""
+        # Devuelve dimensiones reales del modelo cargado desde su config.
         cfg = self.model.config
         return {
             "model_id": self.model_id,
@@ -164,7 +164,7 @@ class T5Model:
         length_penalty: float = 2.0,
         no_repeat_ngram_size: int = 3,
     ) -> dict:
-        """Genera un resumen en ingles a partir del texto de entrada."""
+        # Genera un resumen en ingles a partir del texto de entrada.
         prefixed_text = "summarize: " + text.strip()
 
         inputs = self.tokenizer(
@@ -214,7 +214,7 @@ class T5Model:
 
     @staticmethod
     def compute_rouge(reference_text: str, generated_text: str) -> dict:
-        """Calcula ROUGE-1, ROUGE-2 y ROUGE-L contra un resumen de referencia."""
+        # Calcula ROUGE-1, ROUGE-2 y ROUGE-L contra un resumen de referencia.
         if rouge_scorer is None:
             raise ImportError(
                 "No esta instalado rouge-score. Ejecuta: pip install rouge-score"
@@ -249,19 +249,11 @@ class T5Model:
         head_idx: Optional[int] = None,
         average_layers: bool = False,
     ) -> dict:
-        """
-        Extrae una matriz de cross-attention configurable.
-
-        Forma interna de cada capa:
-            (batch_size, num_heads, dec_seq_len, enc_seq_len)
-
-        Opciones:
-            layer_idx=None y average_layers=False -> ultima capa.
-            layer_idx=N -> capa N del decoder.
-            average_layers=True -> promedio de todas las capas.
-            head_idx=None -> promedio de cabezas.
-            head_idx=N -> cabeza N especifica.
-        """
+        # Extrae una matriz de cross-attention configurable.
+        # Forma interna de cada capa: (batch_size, num_heads, dec_seq_len, enc_seq_len)
+        # layer_idx=None y average_layers=False -> ultima capa.
+        # layer_idx=N -> capa N del decoder. average_layers=True -> promedio de capas.
+        # head_idx=None -> promedio de cabezas. head_idx=N -> cabeza especifica.
         prefixed = "summarize: " + input_text.strip()
 
         enc = self.tokenizer(
@@ -345,7 +337,7 @@ class T5Model:
 
     @staticmethod
     def _clean_token(token: str) -> str:
-        """Limpia tokens SentencePiece para mostrarlos de forma legible."""
+        # Limpia tokens SentencePiece para mostrarlos de forma legible.
         return (
             token.replace("▁", " ")
             .replace("</s>", "")
@@ -360,14 +352,8 @@ class T5Model:
         encoder_tokens: Sequence[str],
         top_k: int = 8,
     ) -> dict:
-        """
-        Identifica los tokens de entrada mas consultados por el decoder.
-
-        Metodo:
-            1. Promedia la atencion por columnas.
-            2. Cada columna representa un token del encoder.
-            3. Las columnas con mayor promedio fueron mas consultadas globalmente.
-        """
+        # Identifica los top_k tokens del encoder mas consultados por el decoder.
+        # Promedia la atencion por columnas: mayor promedio = mas consultado globalmente.
         if attention_matrix.size == 0:
             return {"top_tokens": [], "message": "No hay datos suficientes para interpretar."}
 
