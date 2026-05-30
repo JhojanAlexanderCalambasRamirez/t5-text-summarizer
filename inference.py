@@ -1,12 +1,12 @@
 # inference.py
 # ------------
-# Responsabilidad unica: toda la logica relacionada con el modelo T5.
-# Carga de pesos desde HuggingFace Hub, tokenizacion con SentencePiece,
-# generacion de resumenes con beam search, calculo opcional de ROUGE,
-# benchmarking entre variantes y extraccion configurable de pesos de
-# atencion cruzada para visualizacion en la interfaz.
+# Responsabilidad única: toda la lógica relacionada con el modelo T5.
+# Carga de pesos desde HuggingFace Hub, tokenización con SentencePiece,
+# generación de resúmenes con beam search, cálculo opcional de ROUGE,
+# benchmarking entre variantes y extracción configurable de pesos de
+# atención cruzada para visualización en la interfaz.
 #
-# Este modulo no importa Streamlit ni conoce la UI. Solo recibe datos,
+# Este módulo no importa Streamlit ni conoce la UI. Solo recibe datos,
 # ejecuta el modelo y devuelve resultados en estructuras Python puras (dict).
 
 import time
@@ -23,18 +23,18 @@ except ImportError:  # Permite que la app funcione aunque rouge-score no este in
 
 
 # ---------------------------------------------------------------------------
-# Catalogo de variantes del modelo
+# Catálogo de variantes del modelo
 # ---------------------------------------------------------------------------
-# t5-small / t5-base: modelos estandar preentrenados en C4 con span corruption.
-#   Producen resumenes coherentes. Recomendados para demos educativas en CPU.
-#   t5-small  ~ 60M parametros, t5-base ~ 220M parametros.
+# t5-small / t5-base: modelos estándar preentrenados en C4 con span corruption.
+#   Producen resúmenes coherentes. Recomendados para demos educativas en CPU.
+#   t5-small  ~ 60M parámetros, t5-base ~ 220M parámetros.
 #
-# t5-efficient-*: variantes compactas disenadas por Google para reducir costo.
-#   Utiles cuando el tiempo de descarga o la memoria RAM son limitados.
+# t5-efficient-*: variantes compactas diseñadas por Google para reducir costo.
+#   Útiles cuando el tiempo de descarga o la memoria RAM son limitados.
 #
 # Los IDs de la derecha son los identificadores exactos en HuggingFace Hub.
 # Al instanciar T5Model, los pesos se descargan una sola vez y quedan en
-# cache local (~/.cache/huggingface/) para usos posteriores sin conexion.
+# caché local (~/.cache/huggingface/) para usos posteriores sin conexión.
 AVAILABLE_MODELS = {
     "t5-small": "t5-small",
     "t5-base": "t5-base",
@@ -45,11 +45,11 @@ AVAILABLE_MODELS = {
 
 
 # ---------------------------------------------------------------------------
-# Textos de ejemplo para la interfaz de demostracion
+# Textos de ejemplo para la interfaz de demostración
 # ---------------------------------------------------------------------------
-# Todos los textos estan en ingles porque T5 fue preentrenado en C4, un corpus
-# de paginas web en ingles de 750 GB. Sin fine-tuning especifico, la calidad
-# del resumen en otros idiomas no esta garantizada.
+# Todos los textos están en inglés porque T5 fue preentrenado en C4, un corpus
+# de páginas web en inglés de 750 GB. Sin fine-tuning específico, la calidad
+# del resumen en otros idiomas no está garantizada.
 EXAMPLE_TEXTS = {
     "Inteligencia Artificial": (
         "Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to "
@@ -66,7 +66,7 @@ EXAMPLE_TEXTS = {
         "machines become increasingly capable, tasks considered to require intelligence are "
         "often removed from the definition of AI, a phenomenon known as the AI effect."
     ),
-    "Cambio Climatico": (
+    "Cambio Climático": (
         "Climate change refers to long-term shifts in temperatures and weather patterns. "
         "These shifts may be natural, such as through variations in the solar cycle. But "
         "since the 1800s, human activities have been the main driver of climate change, "
@@ -99,11 +99,11 @@ EXAMPLE_TEXTS = {
 }
 
 
-# Parametros aproximados, utiles para mostrar informacion academica y comparativas.
+# Parámetros aproximados, útiles para mostrar información académica y comparativas.
 MODEL_METADATA = {
     "t5-small": {"parameters": "~60M", "recommended_use": "Demo equilibrada en CPU"},
-    "t5-base": {"parameters": "~220M", "recommended_use": "Mayor calidad, mas lento"},
-    "t5-efficient-tiny": {"parameters": "~16M", "recommended_use": "Muy rapido, menor calidad"},
+    "t5-base": {"parameters": "~220M", "recommended_use": "Mayor calidad, más lento"},
+    "t5-efficient-tiny": {"parameters": "~16M", "recommended_use": "Muy rápido, menor calidad"},
     "t5-efficient-small": {"parameters": "~60M", "recommended_use": "Balance eficiencia/calidad"},
     "t5-efficient-base": {"parameters": "~220M", "recommended_use": "Eficiente grande"},
 }
@@ -113,7 +113,7 @@ class T5Model:
     # Wrapper sobre T5ForConditionalGeneration de HuggingFace Transformers.
 
     def __init__(self, model_id: str = "t5-small"):
-        # --- Seleccion del dispositivo de computo ---
+        # --- Selección del dispositivo de cómputo ---
         # CUDA : GPU NVIDIA.
         # MPS  : GPU de Apple Silicon.
         # CPU  : fallback universal.
@@ -131,7 +131,7 @@ class T5Model:
         self.model.eval()
 
     # -----------------------------------------------------------------------
-    # Informacion del modelo cargado
+    # Información del modelo cargado
     # -----------------------------------------------------------------------
 
     def get_model_info(self) -> dict:
@@ -152,7 +152,7 @@ class T5Model:
         }
 
     # -----------------------------------------------------------------------
-    # Metodo 1: generacion de resumen
+    # Método 1: generación de resumen
     # -----------------------------------------------------------------------
 
     def summarize(
@@ -164,7 +164,7 @@ class T5Model:
         length_penalty: float = 2.0,
         no_repeat_ngram_size: int = 3,
     ) -> dict:
-        # Genera un resumen en ingles a partir del texto de entrada.
+        # Genera un resumen en inglés a partir del texto de entrada.
         prefixed_text = "summarize: " + text.strip()
 
         inputs = self.tokenizer(
@@ -209,7 +209,7 @@ class T5Model:
         return result
 
     # -----------------------------------------------------------------------
-    # Metodo 2: ROUGE
+    # Método 2: ROUGE
     # -----------------------------------------------------------------------
 
     @staticmethod
@@ -217,7 +217,7 @@ class T5Model:
         # Calcula ROUGE-1, ROUGE-2 y ROUGE-L contra un resumen de referencia.
         if rouge_scorer is None:
             raise ImportError(
-                "No esta instalado rouge-score. Ejecuta: pip install rouge-score"
+                "No está instalado rouge-score. Ejecuta: pip install rouge-score"
             )
 
         scorer = rouge_scorer.RougeScorer(
@@ -236,7 +236,7 @@ class T5Model:
         }
 
     # -----------------------------------------------------------------------
-    # Metodo 3: extraccion configurable de pesos de atencion cruzada
+    # Método 3: extracción configurable de pesos de atención cruzada
     # -----------------------------------------------------------------------
 
     def get_cross_attention(
@@ -251,9 +251,9 @@ class T5Model:
     ) -> dict:
         # Extrae una matriz de cross-attention configurable.
         # Forma interna de cada capa: (batch_size, num_heads, dec_seq_len, enc_seq_len)
-        # layer_idx=None y average_layers=False -> ultima capa.
+        # layer_idx=None y average_layers=False -> última capa.
         # layer_idx=N -> capa N del decoder. average_layers=True -> promedio de capas.
-        # head_idx=None -> promedio de cabezas. head_idx=N -> cabeza especifica.
+        # head_idx=None -> promedio de cabezas. head_idx=N -> cabeza específica.
         prefixed = "summarize: " + input_text.strip()
 
         enc = self.tokenizer(
@@ -332,7 +332,7 @@ class T5Model:
         }
 
     # -----------------------------------------------------------------------
-    # Metodo 4: interpretacion automatica del heatmap
+    # Método 4: interpretación automática del heatmap
     # -----------------------------------------------------------------------
 
     @staticmethod
@@ -352,8 +352,8 @@ class T5Model:
         encoder_tokens: Sequence[str],
         top_k: int = 8,
     ) -> dict:
-        # Identifica los top_k tokens del encoder mas consultados por el decoder.
-        # Promedia la atencion por columnas: mayor promedio = mas consultado globalmente.
+        # Identifica los top_k tokens del encoder más consultados por el decoder.
+        # Promedia la atención por columnas: mayor promedio = más consultado globalmente.
         if attention_matrix.size == 0:
             return {"top_tokens": [], "message": "No hay datos suficientes para interpretar."}
 
@@ -380,12 +380,12 @@ class T5Model:
 
         if readable:
             message = (
-                "El decoder consulto con mayor intensidad los tokens de entrada: "
+                "El decoder consultó con mayor intensidad los tokens de entrada: "
                 + ", ".join(readable)
-                + ". Estos tokens fueron los mas influyentes dentro de la matriz de cross-attention seleccionada."
+                + ". Estos tokens fueron los más influyentes dentro de la matriz de cross-attention seleccionada."
             )
         else:
-            message = "No se detectaron tokens informativos destacados en la atencion seleccionada."
+            message = "No se detectaron tokens informativos destacados en la atención seleccionada."
 
         return {
             "top_tokens": top_tokens,

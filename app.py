@@ -1,15 +1,15 @@
 # app.py
 # ------
-# Responsabilidad unica: interfaz grafica con Streamlit.
-# Toda la logica del modelo (carga, tokenizacion, inferencia, ROUGE,
-# benchmarking y atencion) vive en inference.py. Este archivo solo construye
+# Responsabilidad única: interfaz gráfica con Streamlit.
+# Toda la lógica del modelo (carga, tokenización, inferencia, ROUGE,
+# benchmarking y atención) vive en inference.py. Este archivo solo construye
 # la UI, recoge inputs del usuario y muestra resultados.
 #
 # Mejoras incluidas:
 #   1. Selector de Layer y Head para cross-attention.
-#   2. Evaluacion ROUGE-1 / ROUGE-2 / ROUGE-L.
-#   3. Comparacion Tiny / Small / Base / Efficient.
-#   4. Interpretacion automatica del heatmap.
+#   2. Evaluación ROUGE-1 / ROUGE-2 / ROUGE-L.
+#   3. Comparación Tiny / Small / Base / Efficient.
+#   4. Interpretación automática del heatmap.
 
 import json
 
@@ -23,7 +23,7 @@ from inference import AVAILABLE_MODELS, EXAMPLE_TEXTS, MODEL_METADATA, T5Model
 
 
 # ---------------------------------------------------------------------------
-# Configuracion de la pagina
+# Configuración de la pagina
 # ---------------------------------------------------------------------------
 st.set_page_config(
     page_title="T5 — Resumen Automatico de Texto",
@@ -68,10 +68,10 @@ def build_download_payload(data: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Sidebar: configuracion del experimento
+# Sidebar: configuración del experimento
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.title("Configuracion")
+    st.title("Configuración")
 
     model_key = st.selectbox(
         "Variante del modelo",
@@ -84,52 +84,52 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("Parametros de generacion")
+    st.subheader("Parámetros de generación")
 
     max_length = st.slider(
-        "Longitud maxima del resumen (tokens)",
+        "Longitud máxima del resumen (tokens)",
         min_value=50,
         max_value=300,
         value=150,
         step=10,
-        help="Un token equivale aproximadamente a 0.75 palabras en ingles.",
+        help="Un token equivale aproximadamente a 0.75 palabras en inglés.",
     )
     min_length = st.slider(
-        "Longitud minima del resumen (tokens)",
+        "Longitud mínima del resumen (tokens)",
         min_value=10,
         max_value=100,
         value=30,
         step=5,
-        help="El decoder no detendra la generacion antes de este limite.",
+        help="El decoder no detendrá la generación antes de este límite.",
     )
     num_beams = st.slider(
-        "Numero de beams (beam search)",
+        "Número de beams (beam search)",
         min_value=1,
         max_value=8,
         value=4,
         step=1,
-        help="1 = greedy decoding. Mayor numero = mejor calidad pero mas lento.",
+        help="1 = greedy decoding. Mayor número = mejor calidad pero más lento.",
     )
     length_penalty = st.slider(
-        "Penalizacion de longitud",
+        "Penalización de longitud",
         min_value=0.5,
         max_value=3.0,
         value=2.0,
         step=0.5,
-        help=">1.0 favorece resumenes mas largos. <1.0 favorece resumenes mas cortos.",
+        help=">1.0 favorece resúmenes más largos. <1.0 favorece resúmenes más cortos.",
     )
 
     st.divider()
-    st.caption("Universidad Autonoma de Occidente · 2025")
+    st.caption("Universidad Autónoma de Occidente · 2025")
     st.caption("Procesamiento de Datos Secuenciales con Deep Learning")
 
 
 # ---------------------------------------------------------------------------
 # Encabezado del cuerpo principal
 # ---------------------------------------------------------------------------
-st.title("T5 — Resumen Automatico de Texto")
+st.title("T5 — Resumen Automático de Texto")
 st.markdown(
-    "Implementacion del articulo **Exploring the Limits of Transfer Learning "
+    "Implementación del artículo **Exploring the Limits of Transfer Learning "
     "with a Unified Text-to-Text Transformer** · Google Research · 2019"
 )
 st.divider()
@@ -143,19 +143,19 @@ st.divider()
 ) = st.tabs(
     [
         "Demo: Resumir texto",
-        "Atencion Cruzada: Layer / Head",
+        "Atención Cruzada: Layer / Head",
         "ROUGE",
-        "Comparacion de modelos",
+        "Comparación de modelos",
         "Arquitectura T5",
     ]
 )
 
 
 # ==========================================================================
-# PESTAÑA 1: Demo principal — generacion de resumen
+# PESTAÑA 1: Demo principal — generación de resumen
 # ==========================================================================
 with tab_demo:
-    st.subheader("Ingresa un texto en ingles para resumir")
+    st.subheader("Ingresa un texto en inglés para resumir")
 
     example_choice = st.selectbox(
         "Cargar texto de ejemplo",
@@ -167,8 +167,8 @@ with tab_demo:
         "Texto de entrada",
         value=default_text,
         height=220,
-        placeholder="Pega aqui el texto que deseas resumir...",
-        help="El modelo agrega automaticamente el prefijo 'summarize:' antes del texto.",
+        placeholder="Pega aquí el texto que deseas resumir...",
+        help="El modelo agrega automáticamente el prefijo 'summarize:' antes del texto.",
     )
 
     col_btn, col_info = st.columns([1, 3])
@@ -177,7 +177,7 @@ with tab_demo:
     with col_info:
         st.info(
             "**Framework text-to-text:** T5 recibe `summarize: [texto]` y genera el resumen. "
-            "El mismo modelo puede ejecutar otras tareas cambiando unicamente el prefijo."
+            "El mismo modelo puede ejecutar otras tareas cambiando únicamente el prefijo."
         )
 
     if run_button:
@@ -225,15 +225,15 @@ with tab_demo:
 
 
 # ==========================================================================
-# PESTAÑA 2: Visualizacion de atencion cruzada con Layer / Head
+# PESTAÑA 2: Visualización de atención cruzada con Layer / Head
 # ==========================================================================
 with tab_attention:
-    st.subheader("Visualizacion avanzada de la Atencion Cruzada")
+    st.subheader("Visualización avanzada de la Atención Cruzada")
     st.markdown(
         """
         La **cross-attention** es el mecanismo por el cual el decoder consulta la salida
         del encoder mientras genera el resumen. Ahora puedes escoger la **capa del decoder**
-        y la **cabeza de atencion** especifica.
+        y la **cabeza de atención** especifica.
 
         - **Layer**: profundidad del decoder desde la capa inicial hasta la ultima.
         - **Head**: una cabeza individual dentro de Multi-Head Attention.
@@ -243,7 +243,7 @@ with tab_attention:
     st.divider()
 
     if "last_input" not in st.session_state:
-        st.info("Primero genera un resumen en la pestana **Demo** para visualizar la atencion.")
+        st.info("Primero genera un resumen en la pestana **Demo** para visualizar la atención.")
     else:
         model = load_model(st.session_state["model_id"])
         model_info = model.get_model_info()
@@ -294,8 +294,8 @@ with tab_attention:
         layer_idx = None if average_layers else int(layer_option.split()[-1])
         head_idx = None if head_option == "Promedio de heads" else int(head_option.split()[-1])
 
-        if st.button("Visualizar atencion cruzada", type="primary"):
-            with st.spinner("Calculando pesos de atencion..."):
+        if st.button("Visualizar atención cruzada", type="primary"):
+            with st.spinner("Calculando pesos de atención..."):
                 attn_data = model.get_cross_attention(
                     input_text=st.session_state["last_input"],
                     output_text=st.session_state["last_summary"],
@@ -314,7 +314,7 @@ with tab_attention:
             x_labs = attn_data["encoder_tokens"]
             y_labs = attn_data["decoder_tokens"]
 
-            title = f"Atencion Cruzada — {attn_data['selected_layer']} — {attn_data['selected_head']}"
+            title = f"Atención Cruzada — {attn_data['selected_layer']} — {attn_data['selected_head']}"
 
             fig, ax = plt.subplots(
                 figsize=(
@@ -330,7 +330,7 @@ with tab_attention:
                 ax=ax,
                 linewidths=0.3,
                 linecolor="white",
-                cbar_kws={"label": "Peso de atencion"},
+                cbar_kws={"label": "Peso de atención"},
             )
             ax.set_xlabel("Tokens de entrada (Encoder)", fontsize=11)
             ax.set_ylabel("Tokens de salida (Decoder)", fontsize=11)
@@ -341,11 +341,11 @@ with tab_attention:
             st.pyplot(fig)
 
             st.caption(
-                "Cada celda indica cuanta atencion pone el decoder en un token del encoder "
-                "al generar el token de salida correspondiente. Colores mas oscuros = mayor atencion."
+                "Cada celda indica cuánta atención pone el decoder en un token del encoder "
+                "al generar el token de salida correspondiente. Colores más oscuros = mayor atención."
             )
 
-            st.markdown("### Interpretacion automatica")
+            st.markdown("### Interpretación automática")
             interpretation = attn_data["interpretation"]
             st.info(interpretation["message"])
 
@@ -359,7 +359,7 @@ with tab_attention:
                 )
 
             st.download_button(
-                "Descargar datos de atencion JSON",
+                "Descargar datos de atención JSON",
                 data=build_download_payload(
                     {
                         "selected_layer": attn_data["selected_layer"],
@@ -378,15 +378,15 @@ with tab_attention:
 # PESTAÑA 3: ROUGE
 # ==========================================================================
 with tab_rouge:
-    st.subheader("Evaluacion con ROUGE")
+    st.subheader("Evaluación con ROUGE")
     st.markdown(
         """
         ROUGE compara el resumen generado contra un **resumen de referencia**.
-        Es una metrica comun en tareas de resumen automatico.
+        Es una metrica común en tareas de resumen automático.
 
         - **ROUGE-1**: coincidencia de unigramas.
         - **ROUGE-2**: coincidencia de bigramas.
-        - **ROUGE-L**: subsecuencia comun mas larga.
+        - **ROUGE-L**: subsequence común mas larga.
         """
     )
 
@@ -399,7 +399,7 @@ with tab_rouge:
         reference_summary = st.text_area(
             "Resumen de referencia / esperado",
             height=160,
-            placeholder="Pega aqui un resumen humano o esperado para compararlo con el generado por T5.",
+            placeholder="Pega aquí un resumen humano o esperado para compararlo con el generado por T5.",
         )
 
         if st.button("Calcular ROUGE", type="primary"):
@@ -437,19 +437,19 @@ with tab_rouge:
 
 
 # ==========================================================================
-# PESTAÑA 4: Comparacion de modelos
+# PESTAÑA 4: Comparación de modelos
 # ==========================================================================
 with tab_benchmark:
-    st.subheader("Comparacion de modelos T5")
+    st.subheader("Comparación de modelos T5")
     st.markdown(
         """
-        Esta seccion ejecuta el mismo texto con varios modelos T5 y compara:
+        Esta sección ejecuta el mismo texto con varios modelos T5 y compara:
 
         - Tiempo de inferencia.
         - Tiempo por token generado.
         - Longitud del resumen.
-        - Ratio de compresion.
-        - Numero de parametros.
+        - Ratio de compresión.
+        - Numero de parámetros.
 
         Esto permite analizar el compromiso entre calidad, velocidad y costo computacional.
         """
@@ -481,12 +481,12 @@ with tab_benchmark:
     )
 
     st.info(
-        "La primera ejecucion puede tardar porque HuggingFace descarga los pesos "
+        "La primera ejecución puede tardar porque HuggingFace descarga los pesos "
         "del modelo y los almacena en cache."
     )
 
     if st.button(
-        "Ejecutar comparacion",
+        "Ejecutar comparación",
         type="primary",
         key="run_benchmark",
     ):
@@ -526,14 +526,14 @@ with tab_benchmark:
                         {
                             "Modelo": key,
                             "HF ID": current_model_id,
-                            "Parametros aprox.": MODEL_METADATA.get(
+                            "Parámetros approx.": MODEL_METADATA.get(
                                 key,
                                 {},
                             ).get(
                                 "parameters",
                                 "N/D",
                             ),
-                            "Parametros reales": bm_info.get(
+                            "Parámetros reales": bm_info.get(
                                 "parameter_count_total"
                             ),
                             "Dispositivo": bm_result["device"],
@@ -558,7 +558,7 @@ with tab_benchmark:
                             "Longitud resumen": len(
                                 bm_result["summary"].split()
                             ),
-                            "Compresion": bm_result[
+                            "Compresión": bm_result[
                                 "compression_ratio"
                             ],
                             "Resumen": bm_result["summary"],
@@ -600,7 +600,7 @@ with tab_benchmark:
         )
 
         st.markdown(
-            "### Resultados de la comparacion"
+            "### Resultados de la comparación"
         )
 
         st.dataframe(
@@ -637,16 +637,16 @@ with tab_benchmark:
                 )[["Tiempo/token (s)"]]
             )
 
-        if "Compresion" in df_benchmark.columns:
+        if "Compresión" in df_benchmark.columns:
 
             st.markdown(
-                "### Ratio de compresion"
+                "### Ratio de compresión"
             )
 
             st.bar_chart(
                 df_benchmark.set_index(
                     "Modelo"
-                )[["Compresion"]]
+                )[["Compresión"]]
             )
 
         if "Longitud resumen" in df_benchmark.columns:
@@ -666,7 +666,7 @@ with tab_benchmark:
         # ------------------------------------------------------
 
         st.markdown(
-            "### Resumenes generados"
+            "### Resúmenes generados"
         )
 
         for row in benchmark_rows:
@@ -684,7 +684,7 @@ with tab_benchmark:
         # ------------------------------------------------------
 
         st.download_button(
-            "Descargar comparacion JSON",
+            "Descargar comparación JSON",
             data=build_download_payload(
                 {
                     "benchmark": benchmark_rows
@@ -703,7 +703,7 @@ with tab_architecture:
     model_for_info = load_model(model_id)
     info = model_for_info.get_model_info()
 
-    st.markdown("### Configuracion real del modelo cargado")
+    st.markdown("### Configuración real del modelo cargado")
     i1, i2, i3, i4, i5 = st.columns(5)
     i1.metric("d_model", info.get("d_model"))
     i2.metric("d_ff", info.get("d_ff"))
@@ -713,7 +713,7 @@ with tab_architecture:
 
     st.caption(
         f"Modelo: `{info['model_id']}` · Dispositivo: `{info['device']}` · "
-        f"Parametros reales: {info['parameter_count_total']:,}"
+        f"Parámetros reales: {info['parameter_count_total']:,}"
     )
 
     st.divider()
@@ -725,7 +725,7 @@ with tab_architecture:
         st.markdown(
             """
             Procesa el texto de entrada **bidireccionalmente**.
-            Cada token puede atender a todos los demas tokens de la secuencia.
+            Cada token puede atender a todos los demás tokens de la secuencia.
 
             **Capas por bloque:**
             1. **Multi-Head Self-Attention**
@@ -760,10 +760,10 @@ with tab_architecture:
     innovations = {
         "Framework Text-to-Text": (
             "Toda tarea NLP se formula como texto a texto. Un solo modelo puede servir "
-            "para traduccion, resumen, clasificacion o preguntas y respuestas cambiando el prefijo."
+            "para traducción, resumen, clasificación o preguntas y respuestas cambiando el prefijo."
         ),
         "Relative Position Bias": (
-            "T5 anade un sesgo aprendido a los logits de atencion basado en distancia relativa "
+            "T5 añade un sesgo aprendido a los logits de atención basado en distancia relativa "
             "entre tokens, en vez de sumar posiciones absolutas a los embeddings."
         ),
         "Span Corruption": (
@@ -771,10 +771,10 @@ with tab_architecture:
             "y el decoder aprende a reconstruir esos fragmentos."
         ),
         "Pre-Norm": (
-            "La normalizacion ocurre antes de cada subcapa, lo que estabiliza el entrenamiento "
+            "La normalización ocurre antes de cada subcapa, lo que estabiliza el entrenamiento "
             "de redes profundas."
         ),
-        "Visualizacion por Layer y Head": (
+        "Visualización por Layer y Head": (
             "El proyecto permite inspeccionar capas y cabezas especificas de cross-attention, "
             "en lugar de mostrar solo el promedio global."
         ),
@@ -788,11 +788,12 @@ with tab_architecture:
     st.markdown("### Limitaciones de T5")
     st.markdown(
         """
-        - **Idioma:** Los modelos base estan entrenados principalmente en ingles.
+        - **Idioma:** Los modelos base están entrenados principalmente en ingles.
         - **Alucinaciones:** Puede generar texto plausible pero factualmente incorrecto.
         - **Costo computacional:** Las variantes grandes son lentas en CPU.
-        - **Longitud de contexto:** La configuracion estandar se limita a 512 tokens de entrada.
+        - **Longitud de contexto:** La configuración estándar se limita a 512 tokens de entrada.
         - **Sin memoria:** Cada inferencia es independiente.
         - **Sesgo del corpus:** C4 refleja sesgos presentes en la web en ingles.
         """
     )
+
