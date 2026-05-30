@@ -1,45 +1,10 @@
-# requirements-cuda.txt
-# ----------------------
-# Dependencias para usuarios con GPU NVIDIA (CUDA).
-# Usar este archivo en lugar de requirements.txt si el equipo tiene
-# una tarjeta grafica NVIDIA con drivers CUDA instalados.
-#
-# Compatible con:
-#   Windows 10/11 + GPU NVIDIA (GTX/RTX/Tesla)
-#   Linux         + GPU NVIDIA
-#
-# Instrucciones de instalacion:
-#
-#   1. Verificar la version de CUDA instalada:
-#        nvidia-smi                          # muestra la version del driver CUDA
-#
-#   2. Crear entorno virtual:
-#        python -m venv .venv
-#        source .venv/bin/activate           # Linux
-#        .venv\Scripts\activate              # Windows
-#
-#   3. Instalar dependencias con soporte CUDA:
-#        pip install -r requirements-cuda.txt
-#
-#   Ajustar el sufijo de CUDA segun la version detectada en el paso 1:
-#     CUDA 11.8  ->  --extra-index-url https://download.pytorch.org/whl/cu118
-#     CUDA 12.1  ->  --extra-index-url https://download.pytorch.org/whl/cu121
-#     CUDA 12.4  ->  --extra-index-url https://download.pytorch.org/whl/cu124
-#
-# NOTA: el flag --extra-index-url anade el repositorio de PyTorch como fuente
-# adicional (no reemplaza PyPI), de modo que los demas paquetes se siguen
-# descargando normalmente desde pypi.org.
-
---extra-index-url https://download.pytorch.org/whl/cu121
-
-# PyTorch con soporte CUDA 12.1
-# Reemplazar cu121 por cu118 o cu124 segun la version de CUDA del sistema.
-torch>=2.1.0+cu121
-
-# El resto de las dependencias son identicas a requirements.txt
-transformers>=4.40.0
-sentencepiece>=0.2.0
-streamlit>=1.35.0
-matplotlib>=3.7.0
+streamlit>=1.32.0
+transformers>=4.38.0
+sentencepiece>=0.1.99
+matplotlib>=3.8.0
 seaborn>=0.13.0
 numpy>=1.24.0
+pandas>=2.0.0
+rouge-score>=0.1.2
+# Instala PyTorch con CUDA desde la pagina oficial segun tu version de CUDA:
+# https://pytorch.org/get-started/locally/

@@ -3,9 +3,9 @@
 # Dependencias del proyecto T5 — Resumen Automatico de Texto.
 #
 # Compatible con:
-#   macOS Intel       : CPU
+#   macOS Intel               : CPU
 #   macOS Apple Silicon (M1/M2/M3): CPU + MPS (Metal Performance Shaders)
-#   Windows 10/11     : CPU
+#   Windows 10/11             : CPU
 #
 # Instrucciones de instalacion:
 #
@@ -40,5 +40,11 @@ streamlit>=1.35.0         # servidor web y componentes de UI reactivos
 matplotlib>=3.7.0         # generacion de figuras (base de seaborn)
 seaborn>=0.13.0           # heatmap de atencion cruzada
 
-# Utilidades numericas
+# Utilidades numericas y de datos
 numpy>=1.24.0             # manipulacion de la matriz de atencion (ndarray 2D)
+pandas>=2.0.0             # tablas en pestanas de benchmark y ROUGE
+
+# Evaluacion de calidad del resumen (opcional)
+# Si no esta instalado, la pestana ROUGE muestra un mensaje de instalacion
+# en lugar de error critico. Instalar con: pip install rouge-score
+rouge-score>=0.1.2        # metricas ROUGE-1, ROUGE-2 y ROUGE-L
